@@ -14,5 +14,11 @@
   "prisma": {
     "schema": "database/prisma/schema.prisma",
     "seed": "tsx database/prisma/seed.ts"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
   }
 }
