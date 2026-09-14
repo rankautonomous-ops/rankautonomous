@@ -1,0 +1,18 @@
+node_modules
+.DS_Store
+dist
+build
+.next
+coverage
+*.log
+
+# Environment variables & secrets
+.env
+.env*.local
+.env.production
+.env.staging
+
+# Turborepo / IDE caches
+.turbo
+.idea
+.vscode

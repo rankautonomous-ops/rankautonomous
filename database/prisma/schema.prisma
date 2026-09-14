@@ -1,0 +1,334 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum WebsiteStatus {
+  CONNECTED
+  ANALYZING
+  ACTIVE
+  ERROR
+  DISCONNECTED
+}
+
+enum SeoIssuePriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum SearchIntent {
+  INFORMATIONAL
+  COMMERCIAL
+  TRANSACTIONAL
+  NAVIGATIONAL
+}
+
+enum ArticleStatus {
+  IDEA
+  DRAFT
+  AI_REVIEW
+  USER_REVIEW
+  APPROVED
+  PUBLISHED
+}
+
+enum BacklinkOpportunityType {
+  GUEST_POST
+  RELEVANT_WEBSITE
+  RESOURCE_PAGE
+  BUSINESS_DIRECTORY
+  INDUSTRY_PUBLICATION
+  BRAND_MENTION
+  BROKEN_LINK
+  PARTNERSHIP
+}
+
+enum AiJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// -----------------------------------------------------------------------------
+// MODELS
+// -----------------------------------------------------------------------------
+
+model User {
+  id             String   @id @default(uuid())
+  supabaseAuthId String?  @unique
+  email          String   @unique
+  name           String?
+  role           Role     @default(CUSTOMER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relationships
+  subscriptions  Subscription[]
+  websites       Website[]
+  aiJobs         AiJob[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+}
+
+model Subscription {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 String   // e.g., "monthly", "annual"
+  interval             String   // e.g., "month", "year"
+  stripeCustomerId     String?
+  stripeSubscriptionId String?  @unique
+  status               String   // e.g., "active", "past_due", "canceled"
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Website {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url            String
+  name           String
+  platform       String?       // e.g., "WordPress", "Shopify"
+  industry       String?
+  targetCountry  String?
+  targetAudience String?
+  primaryKeywords String[]     // Array of strings or just text representation
+  status         WebsiteStatus @default(CONNECTED)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relationships
+  seoAudits             SeoAudit[]
+  seoIssues             SeoIssue[]
+  keywords              Keyword[]
+  articles              Article[]
+  backlinkOpportunities BacklinkOpportunity[]
+  backlinks             Backlink[]
+  integrations          Integration[]
+  analyticsSnapshots    AnalyticsSnapshot[]
+
+  @@index([userId])
+}
+
+model SeoAudit {
+  id          String   @id @default(uuid())
+  websiteId   String
+  website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  healthScore Float?   // e.g., 78.5
+  status      String   // e.g., "COMPLETED", "FAILED"
+  summaryData Json?    // Raw summary of scores by category
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  seoIssues   SeoIssue[]
+
+  @@index([websiteId])
+}
+
+model SeoIssue {
+  id             String           @id @default(uuid())
+  websiteId      String
+  website        Website          @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  seoAuditId     String?
+  seoAudit       SeoAudit?        @relation(fields: [seoAuditId], references: [id], onDelete: Cascade)
+  title          String
+  description    String
+  category       String           // e.g., "Technical SEO", "On-page"
+  priority       SeoIssuePriority
+  impact         String?
+  recommendation String?
+  status         String           @default("OPEN") // e.g., "OPEN", "FIXED", "IGNORED"
+  affectedUrl    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([websiteId])
+  @@index([seoAuditId])
+}
+
+model Keyword {
+  id               String       @id @default(uuid())
+  websiteId        String
+  website          Website      @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  keyword          String
+  searchVolume     Int?
+  difficulty       Float?
+  intent           SearchIntent?
+  currentRanking   Int?
+  targetUrl        String?
+  opportunityScore Float?
+  source           String?      // e.g., "AI_DISCOVERY", "USER_INPUT"
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([websiteId])
+}
+
+model Article {
+  id                    String        @id @default(uuid())
+  websiteId             String
+  website               Website       @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  topic                 String?
+  primaryKeyword        String?
+  title                 String?
+  metaDescription       String?
+  slug                  String?
+  content               String?       @db.Text
+  wordCount             Int?
+  tone                  String?
+  language              String?
+  targetAudience        String?
+  targetLocation        String?
+  callToAction          String?
+  seoData               Json?
+  internalLinks         Json?         // Suggestions
+  externalReferences    Json?
+  status                ArticleStatus @default(IDEA)
+  scheduledAt           DateTime?
+  publishedAt           DateTime?
+  cmsPublicationInfo    Json?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([websiteId])
+  @@index([status])
+}
+
+model BacklinkOpportunity {
+  id                 String                  @id @default(uuid())
+  websiteId          String
+  website            Website                 @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  domain             String
+  url                String?
+  domainInfo         Json?
+  relevance          Float?
+  type               BacklinkOpportunityType
+  contactInfo        Json?
+  suggestedAction    String?
+  campaignId         String?
+  status             String                  @default("DISCOVERED")
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([websiteId])
+}
+
+model Backlink {
+  id               String   @id @default(uuid())
+  websiteId        String
+  website          Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  sourceUrl        String
+  targetUrl        String
+  referringDomain  String
+  anchorText       String?
+  status           String   @default("ACTIVE") // ACTIVE, LOST
+  firstDiscovered  DateTime @default(now())
+  lastChecked      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([websiteId])
+}
+
+model Integration {
+  id          String   @id @default(uuid())
+  websiteId   String
+  website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  provider    String   // "WORDPRESS", "GSC", "GOOGLE_ANALYTICS"
+  credentials String?  // Encrypted reference or secure token
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([websiteId])
+  @@unique([websiteId, provider])
+}
+
+model AnalyticsSnapshot {
+  id               String   @id @default(uuid())
+  websiteId        String
+  website          Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  source           String   // e.g., "GSC", "GA4", "INTERNAL"
+  date             DateTime
+  metrics          Json     // { organicTraffic, clicks, impressions, ctr, etc. }
+  createdAt        DateTime @default(now())
+
+  @@index([websiteId])
+  @@index([websiteId, date])
+}
+
+model AiJob {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  websiteId   String?     // Optional, as some jobs might be account level
+  type        String      // e.g., "GENERATE_ARTICLE", "SEO_AUDIT"
+  status      AiJobStatus @default(QUEUED)
+  payload     Json?
+  result      Json?
+  error       String?     @db.Text
+  retryCount  Int         @default(0)
+  scheduledAt DateTime    @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Notification {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String   // e.g., "CONTENT", "BILLING", "SEO_ISSUE"
+  title         String
+  message       String   @db.Text
+  isRead        Boolean  @default(false)
+  relatedEntity String?  // e.g., "Article"
+  entityId      String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+}
