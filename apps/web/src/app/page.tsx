@@ -12,9 +12,9 @@ export default async function Home() {
           <div className={styles.logoIcon}>R</div>
           <span className={styles.brandName}>RankAutonomous</span>
         </div>
-        <div className={styles.statusBadge}>
-          <span className={styles.pulseDot} />
-          <span>Backend Connected: Supabase</span>
+        <div className={styles.headerActions}>
+          <a href="#signin" className={styles.signInBtn}>Sign In</a>
+          <a href="#get-started" className={styles.getStartedBtn}>Get Started</a>
         </div>
       </header>
 
@@ -45,26 +45,25 @@ export default async function Home() {
         <div className={styles.grid}>
           <div className={styles.card}>
             <div className={styles.cardIcon}>🔍</div>
-            <h3 className={styles.cardTitle}>Live Supabase Backend</h3>
+            <h3 className={styles.cardTitle}>SEO Audits &amp; Scoring</h3>
             <p className={styles.cardDesc}>
-              Connected to PostgreSQL &amp; PostgREST data layer with Row-Level Security active.
+              Continuous technical crawling, prioritized issue detection, and actionable SEO health scores.
             </p>
           </div>
 
           <div className={styles.card}>
-            <div className={styles.cardIcon}>🛡️</div>
-            <h3 className={styles.cardTitle}>Authentication State</h3>
+            <div className={styles.cardIcon}>✍️</div>
+            <h3 className={styles.cardTitle}>Autonomous Content</h3>
             <p className={styles.cardDesc}>
-              {session?.user ? `Logged in as ${session.user.email}` : 'Ready for User Onboarding & Auth flow (Step 3).'}
+              AI-driven keyword discovery, scheduled articles, internal linking, and one-click CMS publishing.
             </p>
           </div>
 
           <div className={styles.card}>
-            <div className={styles.cardIcon}>🌐</div>
-            <h3 className={styles.cardTitle}>Services Ports</h3>
+            <div className={styles.cardIcon}>🔗</div>
+            <h3 className={styles.cardTitle}>Link-Building Engine</h3>
             <p className={styles.cardDesc}>
-              Frontend UI: <strong>localhost:3000</strong><br />
-              API Server: <strong>localhost:4000</strong>
+              Automated backlink opportunity discovery, outreach assistance, and live link verification.
             </p>
           </div>
         </div>
