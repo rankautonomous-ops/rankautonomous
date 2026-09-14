@@ -7,7 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently -n \"web,api\" -c \"cyan,magenta\" \"npm run dev --workspace=web\" \"npm run dev --workspace=@rankautonomous/api\"",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:api": "npm run dev --workspace=@rankautonomous/api",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
@@ -16,6 +18,7 @@
     "seed": "tsx database/prisma/seed.ts"
   },
   "devDependencies": {
+    "concurrently": "^10.0.5",
     "prisma": "^5.22.0"
   },
   "dependencies": {
