@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import styles from './page.module.css';
 import { createClient } from '../lib/supabase/server';
 
@@ -13,8 +14,20 @@ export default async function Home() {
           <span className={styles.brandName}>RankAutonomous</span>
         </div>
         <div className={styles.headerActions}>
-          <a href="#signin" className={styles.signInBtn}>Sign In</a>
-          <a href="#get-started" className={styles.getStartedBtn}>Get Started</a>
+          {session?.user ? (
+            <Link href="/app" className={styles.getStartedBtn}>
+              Open Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className={styles.signInBtn}>
+                Sign In
+              </Link>
+              <Link href="/signup" className={styles.getStartedBtn}>
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
@@ -40,6 +53,30 @@ export default async function Home() {
           <span className={styles.pipelineStep}>BUILD</span>
           <span className={styles.pipelineArrow}>→</span>
           <span className={styles.pipelineStep}>GROW</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '48px' }}>
+          <Link
+            href={session?.user ? '/app' : '/signup'}
+            className={styles.getStartedBtn}
+            style={{ padding: '12px 30px', fontSize: '15px' }}
+          >
+            {session?.user ? 'Open Workspace' : 'Get Started Free'}
+          </Link>
+          {!session?.user && (
+            <Link
+              href="/login"
+              className={styles.signInBtn}
+              style={{
+                padding: '12px 24px',
+                fontSize: '15px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              Sign In →
+            </Link>
+          )}
         </div>
 
         <div className={styles.grid}>
