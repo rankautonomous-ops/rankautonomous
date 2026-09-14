@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import prisma from './lib/database';
+import userRouter from './routes/user';
 
 dotenv.config();
 
@@ -16,10 +17,13 @@ app.get('/', (req, res) => {
     service: 'RankAutonomous API',
     status: 'online',
     endpoints: {
-      health: '/health'
+      health: '/health',
+      me: '/api/me'
     }
   });
 });
+
+app.use('/api', userRouter);
 
 app.get('/health', async (req, res) => {
   try {

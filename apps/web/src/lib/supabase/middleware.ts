@@ -27,10 +27,27 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Avoid writing logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-  await supabase.auth.getUser();
+  // Authenticate user session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const path = request.nextUrl.pathname;
+
+  // Protected route guard: Redirect unauthenticated requests to /login
+  if (path.startsWith('/app') && !user) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/login';
+    redirectUrl.searchParams.set('redirectTo', path);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Auth pages guard: Redirect already authenticated users to /app
+  if (user && (path === '/login' || path === '/signup')) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/app';
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return supabaseResponse;
 }
