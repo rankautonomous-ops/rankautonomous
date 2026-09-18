@@ -17,24 +17,44 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className={styles.container}>
       <header className={styles.navbar}>
-        <Link href="/app" className={styles.navBrand}>
-          <div className={styles.logoIcon}>R</div>
-          <span className={styles.brandName}>RankAutonomous</span>
-        </Link>
+        <div className={styles.navLeft}>
+          <Link href="/app" className={styles.navBrand}>
+            <div className={styles.logoIcon}>R</div>
+            <span className={styles.brandName}>RankAutonomous</span>
+          </Link>
 
-        <nav className={styles.navLinks}>
-          <Link href="/app" className={styles.navLink}>
-            Dashboard
-          </Link>
-          <Link href="/app/profile" className={styles.navLink}>
-            Profile
-          </Link>
+          <nav className={styles.navLinks}>
+            <Link href="/app" className={styles.navLink}>
+              Overview
+            </Link>
+            <Link href="/app/performance" className={styles.navLink}>
+              Performance
+            </Link>
+            <Link href="/app/keywords" className={styles.navLink}>
+              Keywords
+            </Link>
+            <Link href="/app/content" className={styles.navLink}>
+              Content Engine
+            </Link>
+            <Link href="/app/integrations" className={styles.navLink}>
+              Integrations
+            </Link>
+            <Link href="/app/billing" className={styles.navLink}>
+              Billing
+            </Link>
+            <Link href="/app/profile" className={styles.navLink}>
+              Settings
+            </Link>
+          </nav>
+        </div>
+
+        <div className={styles.navRight}>
           <div className={styles.userBadge}>
-            <span>{user.email}</span>
+            <span className={styles.userEmail}>{user.email}</span>
             <span className={styles.roleTag}>CUSTOMER</span>
           </div>
           <LogoutButton />
-        </nav>
+        </div>
       </header>
 
       <main className={styles.mainContent}>{children}</main>

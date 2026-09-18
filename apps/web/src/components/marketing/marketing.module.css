@@ -1,0 +1,306 @@
+/* =============================================================================
+   MARKETING SHELL (HEADER & FOOTER) - design.md Sections 6 & 15
+   ============================================================================= */
+
+.headerWrapper {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 16px var(--container-padding, 24px);
+  background: rgba(247, 243, 239, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.2s ease;
+}
+
+.headerContainer {
+  max-width: var(--container-max-width, 1400px);
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 52px;
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.brandMark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--text, #111111);
+  color: var(--surface, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.5px;
+}
+
+.brandName {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--text, #111111);
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.navItem {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary, #5f5b58);
+  transition: color 0.15s ease;
+}
+
+.navItem:hover {
+  color: var(--text, #111111);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.loginAction {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text, #111111);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm, 10px);
+  transition: background 0.15s ease;
+}
+
+.loginAction:hover {
+  background: rgba(17, 17, 17, 0.05);
+}
+
+.primaryAction {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--surface, #ffffff);
+  background: var(--text, #111111);
+  padding: 10px 20px;
+  border-radius: var(--radius-sm, 10px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.primaryAction:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 840px) {
+  .navigation {
+    display: none;
+  }
+}
+
+/* =============================================================================
+   LARGE DARK FOOTER - design.md Section 15
+   ============================================================================= */
+
+.footerContainer {
+  background: #121214;
+  color: #f5f5f7;
+  padding: 96px var(--container-padding, 24px) 48px;
+  margin-top: 120px;
+}
+
+.footerContent {
+  max-width: var(--container-max-width, 1400px);
+  margin: 0 auto;
+}
+
+.footerTop {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 64px;
+  padding-bottom: 64px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.footerBrandCol {
+  max-width: 440px;
+}
+
+.footerBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.footerMark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 10px);
+  background: #ffffff;
+  color: #121214;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.footerName {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: #ffffff;
+}
+
+.footerTagline {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 12px;
+}
+
+.footerSub {
+  font-size: 14px;
+  color: #a1a1aa;
+  line-height: 1.6;
+}
+
+.footerNavGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+}
+
+.footerCol {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.colTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #71717a;
+  margin-bottom: 4px;
+}
+
+.colLink {
+  font-size: 14px;
+  color: #d4d4d8;
+  transition: color 0.15s ease;
+}
+
+.colLink:hover {
+  color: #ffffff;
+}
+
+.footerBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 32px;
+}
+
+.copyright {
+  font-size: 13px;
+  color: #71717a;
+}
+
+.footerSocials {
+  display: flex;
+  gap: 24px;
+}
+
+.socialItem {
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+@media (max-width: 768px) {
+  .footerTop {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+}
+
+/* =============================================================================
+   MARKETING SUBPAGE LAYOUTS (Features, How it works, FAQ, Pricing, Legal)
+   ============================================================================= */
+
+.pageContainer {
+  max-width: var(--container-max-width, 1400px);
+  margin: 0 auto;
+  padding: 64px var(--container-padding, 24px) 96px;
+  width: 100%;
+}
+
+.pageHero {
+  max-width: 900px;
+  margin: 0 auto 64px;
+  text-align: center;
+}
+
+.pageTitle {
+  font-size: clamp(2.4rem, 4vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--text, #111111);
+  margin-bottom: 18px;
+}
+
+.pageSubtitle {
+  font-size: clamp(16px, 1.8vw, 20px);
+  color: var(--text-secondary, #5f5b58);
+  line-height: 1.6;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.contentBlock {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #ded9d4);
+  border-radius: var(--radius-xl, 32px);
+  padding: clamp(28px, 4vw, 48px);
+  box-shadow: var(--shadow-card);
+}
+
+.prose {
+  font-size: 16px;
+  color: var(--text-secondary, #5f5b58);
+  line-height: 1.7;
+}
+
+.prose p {
+  margin-bottom: 20px;
+}
+
+.prose h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text, #111111);
+  margin-top: 32px;
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+
+.prose strong {
+  color: var(--text, #111111);
+}

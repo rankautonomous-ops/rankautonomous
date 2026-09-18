@@ -1,15 +1,25 @@
+import './lib/env'; // MUST be the first import to configure environment variables before routers
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import prisma from './lib/database';
 import userRouter from './routes/user';
-
-dotenv.config();
+import billingRouter from './routes/billing';
+import webhookRouter from './routes/webhook';
+import websiteRouter from './routes/website';
+import integrationsRouter from './routes/integrations';
+import { isConfigured } from './lib/env';
 
 const app = express();
 const port = process.env.PORT || 4000;
 
 app.use(cors());
+
+// CRITICAL: Stripe Webhook must receive raw body buffer for signature verification
+// This middleware MUST be registered BEFORE express.json()
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/stripe', webhookRouter);
+
+// Standard JSON body parser for all other REST routes
 app.use(express.json());
 
 app.get('/', (req, res) => {
@@ -18,12 +28,19 @@ app.get('/', (req, res) => {
     status: 'online',
     endpoints: {
       health: '/health',
-      me: '/api/me'
-    }
+      me: '/api/me',
+      billing: '/api/billing',
+      stripeWebhook: '/api/stripe/webhook',
+      websites: '/api/websites',
+      integrations: '/api/integrations',
+    },
   });
 });
 
 app.use('/api', userRouter);
+app.use('/api/billing', billingRouter);
+app.use('/api/websites', websiteRouter);
+app.use('/api/integrations', integrationsRouter);
 
 app.get('/health', async (req, res) => {
   try {
@@ -34,17 +51,27 @@ app.get('/health', async (req, res) => {
   }
 });
 
-const server = app.listen(port, () => {
-  console.log(`API Server running on port ${port}`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(async () => {
-    console.log('HTTP server closed');
-    await prisma.$disconnect();
-    process.exit(0);
+let server: any = null;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(port, () => {
+    console.log(`API Server running on port ${port}`);
+    console.log(`[Config Status] Stripe Secret Key: ${isConfigured('STRIPE_SECRET_KEY') ? 'Configured' : 'Missing'}`);
+    console.log(`[Config Status] Stripe Webhook Secret: ${isConfigured('STRIPE_WEBHOOK_SECRET') ? 'Configured' : 'Missing'}`);
+    console.log(`[Config Status] Stripe Monthly Price: ${isConfigured('STRIPE_MONTHLY_PRICE_ID') ? 'Configured' : 'Missing'}`);
+    console.log(`[Config Status] Stripe Annual Price: ${isConfigured('STRIPE_ANNUAL_PRICE_ID') ? 'Configured' : 'Missing'}`);
   });
-});
 
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    if (server) {
+      server.close(async () => {
+        console.log('HTTP server closed');
+        await prisma.$disconnect();
+        process.exit(0);
+      });
+    }
+  });
+}
+
+export default app;

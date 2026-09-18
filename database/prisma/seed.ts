@@ -34,10 +34,20 @@ async function main() {
   });
   console.log(`Created Website: ${website.url}`);
 
-  // 3. Create a dummy SEO Audit & Issue
+  // 3. Create a dummy Crawl Job, SEO Audit & Issue
+  const crawlJob = await prisma.crawlJob.create({
+    data: {
+      websiteId: website.id,
+      status: 'COMPLETED',
+      totalUrls: 10,
+      crawledUrls: 10,
+    }
+  });
+
   const audit = await prisma.seoAudit.create({
     data: {
       websiteId: website.id,
+      crawlJobId: crawlJob.id,
       healthScore: 85.5,
       status: 'COMPLETED',
       summaryData: { totalIssues: 1 },
@@ -64,10 +74,11 @@ async function main() {
     data: {
       websiteId: website.id,
       keyword: 'SEO software',
+      normalizedKeyword: 'seo software',
       searchVolume: 12000,
       difficulty: 65,
       intent: 'COMMERCIAL',
-      source: 'USER_INPUT',
+      source: 'USER_ENTERED',
     },
   });
 

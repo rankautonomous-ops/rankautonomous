@@ -5,19 +5,26 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
+    "dev:worker": "ts-node src/worker.ts",
     "start": "node dist/index.js",
-    "test": "ts-node src/test/auth-test.ts"
+    "start:worker": "node dist/worker.js",
+    "test": "ts-node src/test/auth-test.ts && ts-node src/test/billing-test.ts && ts-node src/test/website-test.ts && ts-node src/test/ai-keyword-test.ts && ts-node src/test/crawler-test.ts && ts-node src/test/seoAudit-test.ts && ts-node src/test/seoStrategy-test.ts && ts-node src/test/keywordResearch-test.ts && ts-node src/test/ai-content-test.ts && ts-node src/test/wordpress-test.ts && ts-node src/test/crawl-audit-regression-test.ts && ts-node src/test/safety-guard-test.ts && ts-node src/test/google-integrations-schema-test.ts && ts-node src/test/google-oauth-test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
+    "cheerio": "^1.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "robots-parser": "^3.0.1",
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
     "@types/node": "^18.15.11",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   }

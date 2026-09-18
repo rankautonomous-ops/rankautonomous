@@ -66,6 +66,26 @@ enum AiJobStatus {
   CANCELLED
 }
 
+enum CrawlStatus {
+  PENDING
+  CRAWLING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum KeywordStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum KeywordSource {
+  USER_ENTERED
+  AI_SUGGESTED
+  EXTERNAL_PROVIDER
+  SEARCH_CONSOLE
+}
+
 // -----------------------------------------------------------------------------
 // MODELS
 // -----------------------------------------------------------------------------
@@ -120,8 +140,16 @@ model Website {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  // Additive onboarding fields
+  description        String?
+  seoGoals           String[]      @default([])
+  targetLocationType String?       @default("GLOBAL")
+  targetRegion       String?
+  targetCity         String?
+
   // Relationships
   seoAudits             SeoAudit[]
+  seoStrategies         SeoStrategy[]
   seoIssues             SeoIssue[]
   keywords              Keyword[]
   articles              Article[]
@@ -129,6 +157,8 @@ model Website {
   backlinks             Backlink[]
   integrations          Integration[]
   analyticsSnapshots    AnalyticsSnapshot[]
+  crawlJobs             CrawlJob[]
+  searchPerformanceRecords SearchPerformanceRecord[]
 
   @@index([userId])
 }
@@ -137,16 +167,40 @@ model SeoAudit {
   id          String   @id @default(uuid())
   websiteId   String
   website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  crawlJobId  String
+  crawlJob    CrawlJob @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
   healthScore Float?   // e.g., 78.5
-  status      String   // e.g., "COMPLETED", "FAILED"
+  status      String   // e.g., "PENDING", "PROCESSING", "COMPLETED", "FAILED"
   summaryData Json?    // Raw summary of scores by category
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  seoIssues   SeoIssue[]
+  seoIssues     SeoIssue[]
+  seoStrategies SeoStrategy[]
 
   @@index([websiteId])
+  @@index([crawlJobId])
+}
+
+model SeoStrategy {
+  id            String   @id @default(uuid())
+  websiteId     String
+  website       Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  crawlJobId    String
+  crawlJob      CrawlJob @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
+  seoAuditId    String
+  seoAudit      SeoAudit @relation(fields: [seoAuditId], references: [id], onDelete: Cascade)
+  status        String   // PENDING, PROCESSING, COMPLETED, FAILED
+  summary       String?  @db.Text
+  strategyData  Json?    
+  error         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([websiteId])
+  @@index([crawlJobId])
+  @@index([seoAuditId])
 }
 
 model SeoIssue {
@@ -175,17 +229,25 @@ model Keyword {
   websiteId        String
   website          Website      @relation(fields: [websiteId], references: [id], onDelete: Cascade)
   keyword          String
+  normalizedKeyword String
   searchVolume     Int?
   difficulty       Float?
   intent           SearchIntent?
   currentRanking   Int?
   targetUrl        String?
   opportunityScore Float?
-  source           String?      // e.g., "AI_DISCOVERY", "USER_INPUT"
+  cluster          String?
+  source           KeywordSource?
+  status           KeywordStatus @default(ACTIVE)
+  gscClicks30d       Int?
+  gscImpressions30d  Int?
+  gscAvgPosition     Float?
+  gscLastUpdated     DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
   @@index([websiteId])
+  @@unique([websiteId, normalizedKeyword])
 }
 
 model Article {
@@ -208,6 +270,10 @@ model Article {
   internalLinks         Json?         // Suggestions
   externalReferences    Json?
   status                ArticleStatus @default(IDEA)
+  generationJobId       String?
+  reviewJobId           String?
+  generationMetadata    Json?
+  aiReviewData          Json?
   scheduledAt           DateTime?
   publishedAt           DateTime?
   cmsPublicationInfo    Json?
@@ -216,6 +282,7 @@ model Article {
 
   @@index([websiteId])
   @@index([status])
+  @@index([websiteId, status])
 }
 
 model BacklinkOpportunity {
@@ -255,14 +322,18 @@ model Backlink {
 }
 
 model Integration {
-  id          String   @id @default(uuid())
-  websiteId   String
-  website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
-  provider    String   // "WORDPRESS", "GSC", "GOOGLE_ANALYTICS"
-  credentials String?  // Encrypted reference or secure token
-  status      String   @default("ACTIVE")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(uuid())
+  websiteId      String
+  website        Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  provider       String    // "WORDPRESS", "GSC", "GOOGLE_ANALYTICS"
+  config         Json?     // Non-sensitive connection config: { siteUrl, username, ... }
+  credentials    String?   // Encrypted reference or secure token
+  status         String    @default("ACTIVE")
+  lastSyncAt     DateTime?
+  lastSyncStatus String?   // "IDLE", "SYNCING", "SUCCESS", "ERROR"
+  lastSyncError  String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([websiteId])
   @@unique([websiteId, provider])
@@ -279,6 +350,33 @@ model AnalyticsSnapshot {
 
   @@index([websiteId])
   @@index([websiteId, date])
+  @@unique([websiteId, source, date])
+}
+
+model SearchPerformanceRecord {
+  id          String   @id @default(uuid())
+  websiteId   String
+  website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  date        DateTime @db.Date
+
+  query       String
+  page        String
+
+  device      String   @default("ALL")
+  country     String   @default("ALL")
+
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float
+
+  createdAt   DateTime @default(now())
+
+  @@unique([websiteId, date, query, page, device, country])
+  @@index([websiteId, date])
+  @@index([websiteId, query])
+  @@index([websiteId, page])
 }
 
 model AiJob {
@@ -331,4 +429,67 @@ model AuditLog {
 
   @@index([userId])
   @@index([entityType, entityId])
+}
+
+model CrawlJob {
+  id          String      @id @default(uuid())
+  websiteId   String
+  website     Website     @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  status      CrawlStatus @default(PENDING)
+  totalUrls   Int         @default(0)
+  crawledUrls Int         @default(0)
+  failedUrls  Int         @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorMessage String?      @db.Text
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  pages         PageResult[]
+  seoAudits     SeoAudit[]
+  seoStrategies SeoStrategy[]
+
+  @@index([websiteId])
+  @@index([status])
+}
+
+model PageResult {
+  id            String    @id @default(uuid())
+  crawlJobId    String
+  crawlJob      CrawlJob  @relation(fields: [crawlJobId], references: [id], onDelete: Cascade)
+  url           String
+  normalizedUrl String?
+  statusCode    Int?
+  status        String?   // SUCCESS, FAILED
+  title         String?
+  description   String?
+  h1            String?
+  wordCount     Int?
+  htmlSize      Int?
+  internalLinks Json?     // Array of strings
+  externalLinks Json?     // Array of strings
+  error         String?   @db.Text
+  canonicalUrl  String?
+  depth         Int       @default(0)
+  crawledAt     DateTime  @default(now())
+  
+  @@index([crawlJobId])
+  @@unique([crawlJobId, url])
+}
+
+model BackgroundJob {
+  id          String    @id @default(uuid())
+  type        String    // e.g., 'GOOGLE_SYNC', 'SEO_CRAWL'
+  payload     Json
+  status      String    @default("QUEUED") // QUEUED, PROCESSING, COMPLETED, FAILED, CANCELLED
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  nextRunAt   DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  error       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([status, nextRunAt])
 }

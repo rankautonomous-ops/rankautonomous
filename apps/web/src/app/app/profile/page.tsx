@@ -94,16 +94,22 @@ export default function ProfilePage() {
   };
 
   return (
-    <div>
+    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Account Profile &amp; Security</h1>
-        <p className={styles.pageSubtitle}>
-          Manage your personal details and security preferences.
-        </p>
+        <div>
+          <div className={styles.greetingPrefix}>Settings</div>
+          <h1 className={styles.pageTitle}>Profile &amp; Security</h1>
+          <p className={styles.pageSubtitle}>
+            Manage your personal credentials, workspace profile, and password.
+          </p>
+        </div>
       </div>
 
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Personal Information</h2>
+        <p className={styles.cardDescription} style={{ marginBottom: '20px' }}>
+          Your display name and registered email address.
+        </p>
 
         {profileSuccess && <div className={styles.successBanner}>{profileSuccess}</div>}
         {profileError && <div className={styles.errorBanner}>{profileError}</div>}
@@ -111,7 +117,7 @@ export default function ProfilePage() {
         <form onSubmit={handleProfileUpdate} className={styles.form}>
           <div className={styles.formGroup}>
             <label htmlFor="email" className={styles.label}>
-              Email address (read-only)
+              Email address
             </label>
             <input
               id="email"
@@ -119,7 +125,7 @@ export default function ProfilePage() {
               disabled
               value={email}
               className={styles.input}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
+              style={{ opacity: 0.7, cursor: 'not-allowed', background: 'var(--surface-soft)' }}
             />
           </div>
 
@@ -139,14 +145,19 @@ export default function ProfilePage() {
             />
           </div>
 
-          <button type="submit" disabled={profileLoading} className={styles.button}>
-            {profileLoading ? 'Saving...' : 'Save Profile Changes'}
-          </button>
+          <div>
+            <button type="submit" disabled={profileLoading} className={styles.primaryButton}>
+              {profileLoading ? 'Saving...' : 'Save Profile Changes'}
+            </button>
+          </div>
         </form>
       </div>
 
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Change Password</h2>
+        <p className={styles.cardDescription} style={{ marginBottom: '20px' }}>
+          Ensure your account stays secure with a strong password.
+        </p>
 
         {passwordSuccess && <div className={styles.successBanner}>{passwordSuccess}</div>}
         {passwordError && <div className={styles.errorBanner}>{passwordError}</div>}
@@ -186,9 +197,11 @@ export default function ProfilePage() {
             />
           </div>
 
-          <button type="submit" disabled={passwordLoading} className={styles.button}>
-            {passwordLoading ? 'Updating...' : 'Update Password'}
-          </button>
+          <div>
+            <button type="submit" disabled={passwordLoading} className={styles.primaryButton}>
+              {passwordLoading ? 'Updating...' : 'Update Password'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

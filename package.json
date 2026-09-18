@@ -18,7 +18,7 @@
   },
   "prisma": {
     "schema": "database/prisma/schema.prisma",
-    "seed": "tsx database/prisma/seed.ts"
+    "seed": "npx tsx database/prisma/seed.ts"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",
