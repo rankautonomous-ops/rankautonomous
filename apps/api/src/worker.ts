@@ -11,6 +11,9 @@ let isShuttingDown = false;
 // import { startCrawl } from './services/crawler';
 // import { generateArticle } from './services/aiContent';
 
+import prisma from './lib/database';
+import { verifyBacklink } from './services/backlinks/verifyBacklink';
+
 async function processJob(job: any) {
   console.log(`[Worker ${WORKER_ID}] Processing job ${job.id} of type ${job.type}`);
   
@@ -28,6 +31,26 @@ async function processJob(job: any) {
         // await generateArticle(job.payload.jobId);
         console.log(`Executing AI_ARTICLE_GENERATION for job ${job.payload.jobId}`);
         break;
+      case 'BACKLINK_VERIFICATION':
+        if (!job.payload || typeof job.payload.backlinkId !== 'string') {
+          console.warn(`[Worker ${WORKER_ID}] Malformed payload for BACKLINK_VERIFICATION. Skipping.`);
+          break; // Proceed to complete the job to drop it
+        }
+
+        // Tenant & Stale Job Safety
+        const backlink = await prisma.backlink.findUnique({
+          where: { id: job.payload.backlinkId },
+          include: { website: true }
+        });
+
+        if (!backlink || !backlink.website || !backlink.website.userId) {
+          console.warn(`[Worker ${WORKER_ID}] Backlink ${job.payload.backlinkId} missing or lacks valid tenant. Skipping.`);
+          break; // Proceed to complete the job to drop it
+        }
+
+        await verifyBacklink(job.payload.backlinkId);
+        console.log(`Executing BACKLINK_VERIFICATION for backlink ${job.payload.backlinkId}`);
+        break;
       default:
         throw new Error(`Unknown job type: ${job.type}`);
     }
@@ -40,18 +63,38 @@ async function processJob(job: any) {
   }
 }
 
+let rawConcurrency = parseInt(process.env.BACKLINK_WORKER_CONCURRENCY || '5', 10);
+if (isNaN(rawConcurrency) || rawConcurrency < 1) {
+  rawConcurrency = 5;
+}
+const WORKER_CONCURRENCY = Math.min(rawConcurrency, 50);
+
+const activeJobs = new Set<Promise<void>>();
+
 async function startPolling() {
-  console.log(`[Worker ${WORKER_ID}] Started polling queue...`);
+  console.log(`[Worker ${WORKER_ID}] Started polling queue with concurrency ${WORKER_CONCURRENCY}...`);
 
   // Recover any stale jobs on startup
   await QueueService.recoverStaleJobs();
 
   while (!isShuttingDown) {
+    if (activeJobs.size >= WORKER_CONCURRENCY) {
+      // Wait for at least one job to finish before trying to claim another
+      await Promise.race(activeJobs);
+      continue;
+    }
+
     try {
       const job = await QueueService.claimJob(WORKER_ID);
       
       if (job) {
-        await processJob(job);
+        const jobPromise = processJob(job).catch(err => {
+          console.error(`[Worker ${WORKER_ID}] Unhandled exception in job wrapper:`, err);
+        }).finally(() => {
+          activeJobs.delete(jobPromise);
+        });
+        
+        activeJobs.add(jobPromise);
       } else {
         // No jobs available, wait before polling again
         await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
@@ -61,6 +104,12 @@ async function startPolling() {
       // Wait before retrying to prevent rapid failure loops
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
+  }
+
+  // Graceful shutdown: drain active jobs
+  if (activeJobs.size > 0) {
+    console.log(`[Worker ${WORKER_ID}] Waiting for ${activeJobs.size} active jobs to complete before shutting down...`);
+    await Promise.allSettled(Array.from(activeJobs));
   }
 
   console.log(`[Worker ${WORKER_ID}] Polling loop stopped.`);

@@ -349,4 +349,162 @@ router.post('/sync-checkout-session', requireAuth, async (req: Request, res: Res
   }
 });
 
+/**
+ * GET /api/billing/invoices
+ * Retrieves the historical invoices for the authenticated user's active subscription customer.
+ */
+router.get('/invoices', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const subscription = await prisma.subscription.findFirst({
+      where: { userId: user.id, stripeCustomerId: { not: null } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!subscription || !subscription.stripeCustomerId) {
+      res.json({ invoices: [] });
+      return;
+    }
+
+    const invoices = await stripe.invoices.list({
+      customer: subscription.stripeCustomerId,
+      limit: 24, // last 2 years
+    });
+
+    const formattedInvoices = invoices.data.map(inv => ({
+      id: inv.id,
+      amountPaid: inv.amount_paid,
+      status: inv.status,
+      created: inv.created,
+      pdf: inv.invoice_pdf,
+      number: inv.number,
+      currency: inv.currency
+    }));
+
+    res.json({ invoices: formattedInvoices });
+  } catch (error: any) {
+    console.error('[Stripe Invoices Error]:', error?.message || error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to retrieve invoices.' });
+  }
+});
+
+/**
+ * GET /api/billing/payment-methods
+ * Retrieves the user's saved payment methods (cards).
+ */
+router.get('/payment-methods', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const subscription = await prisma.subscription.findFirst({
+      where: { userId: user.id, stripeCustomerId: { not: null } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!subscription || !subscription.stripeCustomerId) {
+      res.json({ paymentMethods: [] });
+      return;
+    }
+
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: subscription.stripeCustomerId,
+      type: 'card',
+    });
+
+    const formatted = paymentMethods.data.map(pm => ({
+      id: pm.id,
+      brand: pm.card?.brand,
+      last4: pm.card?.last4,
+      expMonth: pm.card?.exp_month,
+      expYear: pm.card?.exp_year,
+    }));
+
+    res.json({ paymentMethods: formatted });
+  } catch (error: any) {
+    console.error('[Stripe Payment Methods Error]:', error?.message || error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to retrieve payment methods.' });
+  }
+});
+
+/**
+ * POST /api/billing/payment-methods/setup
+ * Creates a SetupIntent to securely collect a new card on the frontend via Stripe Elements.
+ */
+router.post('/payment-methods/setup', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    let customerId: string | null = null;
+    
+    const subscription = await prisma.subscription.findFirst({
+      where: { userId: user.id, stripeCustomerId: { not: null } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    customerId = subscription?.stripeCustomerId || null;
+
+    if (!customerId) {
+      // Fallback: see if customer exists
+      const existingCustomers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (existingCustomers.data.length > 0) {
+        customerId = existingCustomers.data[0].id;
+      }
+    }
+
+    if (!customerId) {
+      customerId = await getOrCreateStripeCustomer(user);
+    }
+
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      usage: 'off_session', // to allow recurring billing
+    });
+
+    res.json({ clientSecret: setupIntent.client_secret });
+  } catch (error: any) {
+    console.error('[Stripe SetupIntent Error]:', error?.message || error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to initiate payment method update.' });
+  }
+});
+
+/**
+ * POST /api/billing/subscription/cancel
+ * Toggles cancel_at_period_end for the active subscription.
+ */
+router.post('/subscription/cancel', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const { cancel } = req.body; // true to cancel at period end, false to resume
+
+    if (typeof cancel !== 'boolean') {
+      res.status(400).json({ error: 'Bad Request', message: 'Missing boolean "cancel" parameter.' });
+      return;
+    }
+
+    const subscription = await prisma.subscription.findFirst({
+      where: { userId: user.id, status: { in: ['active', 'trialing', 'ACTIVE', 'TRIALING'] } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      res.status(404).json({ error: 'Not Found', message: 'No active subscription found to modify.' });
+      return;
+    }
+
+    const updated = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+      cancel_at_period_end: cancel
+    });
+
+    // Sync database immediately
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: { cancelAtPeriodEnd: cancel }
+    });
+
+    res.json({ success: true, cancelAtPeriodEnd: updated.cancel_at_period_end });
+  } catch (error: any) {
+    console.error('[Stripe Cancel Error]:', error?.message || error);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update subscription cancellation status.' });
+  }
+});
+
 export default router;

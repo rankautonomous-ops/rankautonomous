@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import '../lib/env';
 import prisma from '../lib/database';
 
 async function runSafetyGuardTests() {

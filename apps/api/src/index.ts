@@ -6,6 +6,7 @@ import userRouter from './routes/user';
 import billingRouter from './routes/billing';
 import webhookRouter from './routes/webhook';
 import websiteRouter from './routes/website';
+import backlinksRouter from './routes/backlinks';
 import integrationsRouter from './routes/integrations';
 import { isConfigured } from './lib/env';
 
@@ -40,6 +41,7 @@ app.get('/', (req, res) => {
 app.use('/api', userRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/websites', websiteRouter);
+app.use('/api/websites/:websiteId', backlinksRouter);
 app.use('/api/integrations', integrationsRouter);
 
 app.get('/health', async (req, res) => {

@@ -86,6 +86,24 @@ enum KeywordSource {
   SEARCH_CONSOLE
 }
 
+enum OpportunityStatus {
+  DISCOVERED
+  QUALIFIED
+  READY
+  CONTACTED
+  REPLIED
+  ACCEPTED
+  LINK_ACQUIRED
+  REJECTED
+}
+
+enum BacklinkVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  MISSING
+  ERROR
+}
+
 // -----------------------------------------------------------------------------
 // MODELS
 // -----------------------------------------------------------------------------
@@ -296,12 +314,16 @@ model BacklinkOpportunity {
   type               BacklinkOpportunityType
   contactInfo        Json?
   suggestedAction    String?
+  suggestedAnchor    String?
+  domainAuthority    Int?
   campaignId         String?
-  status             String                  @default("DISCOVERED")
+  status             OpportunityStatus       @default(DISCOVERED)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
   @@index([websiteId])
+  @@index([websiteId, status])
+  @@index([websiteId, type])
 }
 
 model Backlink {
@@ -312,13 +334,22 @@ model Backlink {
   targetUrl        String
   referringDomain  String
   anchorText       String?
-  status           String   @default("ACTIVE") // ACTIVE, LOST
+  status           String   @default("ACTIVE") // ACTIVE, LOST (Maintained for backward compatibility)
+  
+  // Verification State
+  verificationStatus BacklinkVerificationStatus @default(UNVERIFIED)
+  linkAttributes     String[]                   @default([])
+  lastErrorMessage   String?                    @db.Text
+  
   firstDiscovered  DateTime @default(now())
   lastChecked      DateTime @default(now())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([websiteId])
+  @@index([websiteId, status])
+  @@index([websiteId, verificationStatus])
+  @@index([websiteId, lastChecked])
 }
 
 model Integration {

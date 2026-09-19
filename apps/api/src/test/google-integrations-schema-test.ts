@@ -1,4 +1,5 @@
-import assert from 'assert';
+import '../lib/env';
+import { PrismaClient } from '@prisma/client';
 import prisma from '../lib/database';
 
 export async function runSchemaTests() {

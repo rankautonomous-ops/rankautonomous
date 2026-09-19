@@ -8,7 +8,8 @@
     "dev:worker": "ts-node src/worker.ts",
     "start": "node dist/index.js",
     "start:worker": "node dist/worker.js",
-    "test": "ts-node src/test/auth-test.ts && ts-node src/test/billing-test.ts && ts-node src/test/website-test.ts && ts-node src/test/ai-keyword-test.ts && ts-node src/test/crawler-test.ts && ts-node src/test/seoAudit-test.ts && ts-node src/test/seoStrategy-test.ts && ts-node src/test/keywordResearch-test.ts && ts-node src/test/ai-content-test.ts && ts-node src/test/wordpress-test.ts && ts-node src/test/crawl-audit-regression-test.ts && ts-node src/test/safety-guard-test.ts && ts-node src/test/google-integrations-schema-test.ts && ts-node src/test/google-oauth-test.ts"
+    "start:cron:backlinks": "node dist/cron/enqueueStaleBacklinks.js",
+    "test": "ts-node src/test/auth-test.ts && ts-node src/test/billing-test.ts && ts-node src/test/website-test.ts && ts-node src/test/ai-keyword-test.ts && ts-node src/test/crawler-test.ts && ts-node src/test/seoAudit-test.ts && ts-node src/test/seoStrategy-test.ts && ts-node src/test/keywordResearch-test.ts && ts-node src/test/ai-content-test.ts && ts-node src/test/wordpress-test.ts && ts-node src/test/crawl-audit-regression-test.ts && ts-node src/test/safety-guard-test.ts && ts-node src/test/google-integrations-schema-test.ts && ts-node src/test/google-oauth-test.ts && ts-node src/test/backlink-test.ts && ts-node src/test/backlinks-api-test.ts && ts-node src/test/backlink-verification-schema-test.ts && ts-node src/test/verifyBacklink-test.ts && ts-node src/test/worker-integration-test.ts && ts-node src/test/cron-stale-backlinks-test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

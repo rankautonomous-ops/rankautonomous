@@ -5,6 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { Check, CreditCard, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import styles from '../app.module.css';
+import { InvoicesTable } from './components/InvoicesTable';
+import { PaymentMethodManager } from './components/PaymentMethodManager';
+import { SubscriptionManager } from './components/SubscriptionManager';
 
 interface SubscriptionData {
   id: string;
@@ -156,38 +159,7 @@ function BillingContent() {
   };
 
   const handleOpenPortal = async () => {
-    setActionLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error('Authentication session not found.');
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/billing/create-portal-session`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.message || 'Failed to open customer billing portal.');
-      }
-
-      window.location.href = data.url;
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Unable to open billing portal.');
-      setActionLoading(false);
-    }
+    // Deprecated: Using native components instead
   };
 
   const handleStartCheckout = async (plan: 'monthly' | 'annual') => {
@@ -427,40 +399,23 @@ function BillingContent() {
               </div>
             </div>
 
-            <div
-              style={{
-                paddingTop: '24px',
-                borderTop: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '16px',
-              }}
-            >
-              <button
-                type="button"
-                onClick={handleOpenPortal}
-                disabled={actionLoading}
-                className={styles.primaryButton}
-              >
-                {actionLoading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Opening Customer Portal...</span>
-                  </>
-                ) : (
-                  <>
-                    <CreditCard size={16} />
-                    <span>Manage Billing &amp; Invoices</span>
-                    <ExternalLink size={14} />
-                  </>
-                )}
-              </button>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Securely powered by Stripe Customer Portal.
-              </span>
             </div>
+
+            <div style={{ marginTop: '40px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '16px' }}>Payment Method</h3>
+              <PaymentMethodManager />
+            </div>
+
+            <div style={{ marginTop: '40px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '16px' }}>Invoice History</h3>
+              <InvoicesTable />
+            </div>
+
+            <SubscriptionManager 
+              subscriptionId={subscription.id} 
+              cancelAtPeriodEnd={subscription.cancelAtPeriodEnd} 
+              onUpdate={() => fetchSubscriptionStatus(1)} 
+            />
           </div>
         </div>
       )}

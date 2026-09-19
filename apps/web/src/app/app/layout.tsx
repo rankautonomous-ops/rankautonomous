@@ -36,6 +36,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/app/content" className={styles.navLink}>
               Content Engine
             </Link>
+            <Link href="/app/backlinks" className={styles.navLink}>
+              Backlinks
+            </Link>
             <Link href="/app/integrations" className={styles.navLink}>
               Integrations
             </Link>
