@@ -61,6 +61,8 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`[Config Status] Stripe Webhook Secret: ${isConfigured('STRIPE_WEBHOOK_SECRET') ? 'Configured' : 'Missing'}`);
     console.log(`[Config Status] Stripe Monthly Price: ${isConfigured('STRIPE_MONTHLY_PRICE_ID') ? 'Configured' : 'Missing'}`);
     console.log(`[Config Status] Stripe Annual Price: ${isConfigured('STRIPE_ANNUAL_PRICE_ID') ? 'Configured' : 'Missing'}`);
+    console.log(`[Config Status] Trigger Secret Key: ${isConfigured('TRIGGER_SECRET_KEY') ? 'Configured' : 'Missing'}`);
+    console.log(`[Config Status] Trigger Backlink Verification: ${process.env.USE_TRIGGER_BACKLINK_VERIFICATION === 'true' ? 'Enabled' : 'Disabled'}`);
   });
 
   // Graceful shutdown

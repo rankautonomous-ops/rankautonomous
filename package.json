@@ -14,6 +14,8 @@
     "start": "concurrently -n \"web,api\" -c \"cyan,magenta\" \"npm run start:web\" \"npm run start:api\"",
     "start:web": "npm run start --workspace=web",
     "start:api": "npm run start --workspace=@rankautonomous/api",
+    "trigger:dev": "npm run trigger:dev --workspace=@rankautonomous/api",
+    "trigger:deploy": "npm run trigger:deploy --workspace=@rankautonomous/api",
     "test": "npm run test --workspaces --if-present"
   },
   "prisma": {

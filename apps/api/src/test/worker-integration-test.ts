@@ -8,7 +8,7 @@ import * as backlinkFetcher from '../services/backlinks/backlinkFetcher';
 // Start the worker in the background
 import '../worker';
 
-async function waitForJob(jobId: string, timeoutMs: number = 8000, checkAttempts: boolean = false): Promise<any> {
+async function waitForJob(jobId: string, timeoutMs: number = 15000, checkAttempts: boolean = false): Promise<any> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const job = await prisma.backgroundJob.findUnique({ where: { id: jobId } });

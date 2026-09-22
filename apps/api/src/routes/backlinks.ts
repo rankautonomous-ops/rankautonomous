@@ -495,6 +495,7 @@ router.delete('/backlinks/:id', async (req: Request, res: Response) => {
 });
 
 import { QueueService } from '../services/queue';
+import { backlinkVerificationTask } from '../trigger/backlinkVerification';
 
 // Queue Backlink Verification
 router.post('/backlinks/:id/verify', async (req: Request, res: Response) => {
@@ -527,7 +528,42 @@ router.post('/backlinks/:id/verify', async (req: Request, res: Response) => {
       return;
     }
 
-    const job = await QueueService.enqueue('BACKLINK_VERIFICATION', { backlinkId });
+    const useTrigger = process.env.USE_TRIGGER_BACKLINK_VERIFICATION === 'true';
+    const payload: { backlinkId: string; executionProvider?: string } = {
+      backlinkId,
+      ...(useTrigger ? { executionProvider: 'trigger' } : {})
+    };
+
+    const job = await QueueService.enqueue('BACKLINK_VERIFICATION', payload);
+
+    // Feature flag: When enabled, trigger Trigger.dev task; otherwise Render Worker handles it as before
+    if (useTrigger) {
+      try {
+        await backlinkVerificationTask.trigger({
+          backlinkId,
+          jobId: job.id,
+        });
+      } catch (triggerError: any) {
+        console.error('[Trigger Dispatch Error] Failed to dispatch backlink verification to Trigger.dev:', triggerError);
+
+        // Prevent leaving an orphaned QUEUED job that would block future requests and never execute
+        await prisma.backgroundJob.update({
+          where: { id: job.id },
+          data: {
+            status: 'FAILED',
+            error: `Trigger dispatch failed: ${triggerError.message || 'Unknown error'}`,
+            updatedAt: new Date(),
+          },
+        });
+
+        res.status(500).json({
+          error: 'Trigger Dispatch Error',
+          message: 'Failed to dispatch backlink verification task',
+          jobId: job.id,
+        });
+        return;
+      }
+    }
 
     res.status(202).json({
       success: true,

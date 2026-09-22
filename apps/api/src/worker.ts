@@ -37,6 +37,11 @@ async function processJob(job: any) {
           break; // Proceed to complete the job to drop it
         }
 
+        if (job.payload.executionProvider === 'trigger') {
+          console.warn(`[Worker ${WORKER_ID}] Job ${job.id} is owned by Trigger.dev. Skipping.`);
+          return; // Do not process or complete; owned by Trigger.dev
+        }
+
         // Tenant & Stale Job Safety
         const backlink = await prisma.backlink.findUnique({
           where: { id: job.payload.backlinkId },

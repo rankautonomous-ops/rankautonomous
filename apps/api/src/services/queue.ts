@@ -17,6 +17,7 @@ export class QueueService {
 
   /**
    * Claims a job atomically using FOR UPDATE SKIP LOCKED.
+   * Render Worker ignores BACKLINK_VERIFICATION jobs owned by Trigger.dev.
    */
   static async claimJob(workerId: string) {
     const jobs = await prisma.$queryRaw<any[]>`
@@ -24,7 +25,12 @@ export class QueueService {
       SET status = 'PROCESSING', "lockedAt" = NOW(), "lockedBy" = ${workerId} 
       WHERE id = (
         SELECT id FROM "BackgroundJob" 
-        WHERE status = 'QUEUED' AND "nextRunAt" <= NOW() 
+        WHERE status = 'QUEUED' 
+          AND "nextRunAt" <= NOW() 
+          AND (
+            type != 'BACKLINK_VERIFICATION' 
+            OR (payload->>'executionProvider') IS DISTINCT FROM 'trigger'
+          )
         ORDER BY "createdAt" ASC 
         LIMIT 1 
         FOR UPDATE SKIP LOCKED
