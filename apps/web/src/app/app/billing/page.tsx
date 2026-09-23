@@ -399,8 +399,6 @@ function BillingContent() {
               </div>
             </div>
 
-            </div>
-
             <div style={{ marginTop: '40px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '16px' }}>Payment Method</h3>
               <PaymentMethodManager />

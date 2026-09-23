@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, AlertTriangle, Play } from 'lucide-react';
-import { createClient } from '../../../../../lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 import styles from '../../app.module.css';
 
 interface SubscriptionManagerProps {

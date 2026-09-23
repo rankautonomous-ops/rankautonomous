@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Loader2, Download, FileText } from 'lucide-react';
-import { createClient } from '../../../../../lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 import styles from '../../app.module.css';
 
 interface Invoice {

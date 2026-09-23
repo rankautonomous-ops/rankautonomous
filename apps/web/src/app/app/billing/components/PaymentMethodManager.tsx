@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Loader2, CreditCard, Plus, X } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { createClient } from '../../../../../lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 import styles from '../../app.module.css';
 
 // Initialize Stripe outside component
