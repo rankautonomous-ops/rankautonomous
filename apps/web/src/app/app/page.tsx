@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { createClient } from '../../lib/supabase/server';
+import { getApiUrl } from '../../lib/api';
 import CrawlProgress from './CrawlProgress';
 import SeoAuditResults from './SeoAuditResults';
 import SeoStrategyResults from './SeoStrategyResults';
@@ -82,7 +83,7 @@ export default async function AppDashboardPage() {
 
   if (session?.access_token) {
     try {
-      const apiUrl = process.env.API_URL || 'http://localhost:4000';
+      const apiUrl = getApiUrl();
 
       // 1. Fetch user sync info
       const meRes = await fetch(`${apiUrl}/api/me`, {

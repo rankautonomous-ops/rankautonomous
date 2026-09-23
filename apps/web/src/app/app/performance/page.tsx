@@ -1,5 +1,6 @@
 import { createClient } from '../../../lib/supabase/server';
 import PerformanceClient from './PerformanceClient';
+import { getApiUrl } from '../../../lib/api';
 import styles from '../app.module.css';
 
 export default async function PerformancePage() {
@@ -11,7 +12,7 @@ export default async function PerformancePage() {
 
   if (session?.access_token) {
     try {
-      const apiUrl = process.env.API_URL || 'http://localhost:4000';
+      const apiUrl = getApiUrl();
       const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: 'no-store',

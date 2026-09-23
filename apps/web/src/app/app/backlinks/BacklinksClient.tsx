@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 import styles from './backlinks.module.css';
 import { createClient } from '../../../lib/supabase/client';
+import { getApiUrl } from '../../../lib/api';
 
 type OpportunityStatus = 'DISCOVERED' | 'QUALIFIED' | 'READY' | 'CONTACTED' | 'REPLIED' | 'ACCEPTED' | 'LINK_ACQUIRED' | 'REJECTED';
 
@@ -58,7 +61,9 @@ const STATUS_LABELS: Record<OpportunityStatus, string> = {
   REJECTED: 'Rejected'
 };
 
-export default function BacklinksClient({ activeWebsite }: { activeWebsite: any }) {
+export default function BacklinksClient({ initialWebsite }: { initialWebsite?: any }) {
+  const [activeWebsite, setActiveWebsite] = useState<any>(initialWebsite || null);
+  const [loadingWebsite, setLoadingWebsite] = useState(!initialWebsite);
   const [activeTab, setActiveTab] = useState<'opportunities' | 'backlinks'>('opportunities');
   const [opportunities, setOpportunities] = useState<BacklinkOpportunity[]>([]);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
@@ -79,11 +84,44 @@ export default function BacklinksClient({ activeWebsite }: { activeWebsite: any 
   const [saving, setSaving] = useState(false);
 
   const supabase = createClient();
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const apiUrl = getApiUrl();
 
   useEffect(() => {
-    fetchData();
-  }, [activeWebsite.id, activeTab]);
+    if (!initialWebsite) {
+      fetchActiveWebsite();
+    }
+  }, [initialWebsite]);
+
+  const fetchActiveWebsite = async () => {
+    setLoadingWebsite(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setLoadingWebsite(false);
+        return;
+      }
+
+      const res = await fetch(`${apiUrl}/api/websites/active`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setActiveWebsite(json.website || null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch active website on client:', err);
+    } finally {
+      setLoadingWebsite(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeWebsite?.id) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [activeWebsite?.id, activeTab]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -274,7 +312,7 @@ export default function BacklinksClient({ activeWebsite }: { activeWebsite: any 
   const handleStatusChange = (opp: BacklinkOpportunity, newStatus: OpportunityStatus) => {
     if (newStatus === 'LINK_ACQUIRED') {
       setTransitionTarget({ opp, status: newStatus });
-      setLinkAcquiredForm({ sourceUrl: opp.url || '', targetUrl: `https://${activeWebsite.domain}` });
+      setLinkAcquiredForm({ sourceUrl: opp.url || '', targetUrl: activeWebsite?.url || '' });
     } else {
       executeStatusChange(opp.id, newStatus);
     }
@@ -335,6 +373,64 @@ export default function BacklinksClient({ activeWebsite }: { activeWebsite: any 
     } catch (e) {}
   };
 
+  if (loadingWebsite) {
+    return (
+      <div className={styles.workspaceContainer}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>Backlinks Pipeline</h1>
+          <p className={styles.pageSubtitle}>Loading website data...</p>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+          <Loader2 className="animate-spin" size={36} style={{ color: 'var(--text-secondary)' }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeWebsite) {
+    return (
+      <div className={styles.workspaceContainer}>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>Backlinks Pipeline</h1>
+          <p className={styles.pageSubtitle}>
+            Connect a website to manage backlink opportunities and tracking.
+          </p>
+        </div>
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+          padding: '48px 24px',
+          textAlign: 'center',
+          marginTop: '24px'
+        }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
+            No Active Website Connected
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '480px', margin: '0 auto 24px' }}>
+            Complete guided setup to register your domain and start tracking backlink opportunities and verifications.
+          </p>
+          <Link
+            href="/app/onboarding"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#8c423d',
+              color: '#ffffff',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              textDecoration: 'none'
+            }}
+          >
+            Start Setup →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const totalOpps = opportunities.length;
   const readyToContact = opportunities.filter(o => o.status === 'READY').length;
   const linkAcquiredCount = opportunities.filter(o => o.status === 'LINK_ACQUIRED').length;
@@ -345,7 +441,7 @@ export default function BacklinksClient({ activeWebsite }: { activeWebsite: any 
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Backlinks Pipeline</h1>
         <p className={styles.pageSubtitle}>
-          Track backlink opportunities and acquired links for {activeWebsite.domain}.
+          Track backlink opportunities and acquired links for {activeWebsite.name || activeWebsite.url}.
         </p>
       </div>
 
