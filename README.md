@@ -76,3 +76,4 @@ cp .env.example .env
 - Step 8: Stripe Subscriptions & Billing
 - Step 9: Background Automation & Admin Management
 
+<!-- Netlify deployment configuration update -->
