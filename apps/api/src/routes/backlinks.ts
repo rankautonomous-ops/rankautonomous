@@ -508,20 +508,24 @@ router.post('/backlinks/:id/verify', async (req: Request, res: Response) => {
       return;
     }
 
-    // Check for duplicate pending job using raw SQL to securely parse JSON payload in Postgres
-    const duplicateJobs: { id: string }[] = await prisma.$queryRaw`
-      SELECT id FROM "BackgroundJob" 
-      WHERE type = 'BACKLINK_VERIFICATION' 
-        AND status IN ('QUEUED', 'PROCESSING') 
-        AND payload->>'backlinkId' = ${backlinkId} 
-      LIMIT 1
-    `;
+    // Check for duplicate pending job using Prisma JSON path query
+    const duplicateJob = await prisma.backgroundJob.findFirst({
+      where: {
+        type: 'BACKLINK_VERIFICATION',
+        status: { in: ['QUEUED', 'PROCESSING'] },
+        payload: {
+          path: ['backlinkId'],
+          equals: backlinkId,
+        },
+      },
+      select: { id: true },
+    });
 
-    if (duplicateJobs.length > 0) {
+    if (duplicateJob) {
       res.status(202).json({
         success: true,
         message: 'Backlink verification already queued',
-        jobId: duplicateJobs[0].id,
+        jobId: duplicateJob.id,
         backlinkId,
         verificationStatus: existing.verificationStatus
       });
@@ -589,28 +593,36 @@ router.get('/backlinks/:id/verification-job', async (req: Request, res: Response
       return;
     }
 
-    // Safely get the most recent job for this backlink
-    const jobs: any[] = await prisma.$queryRaw`
-      SELECT id, status, created_at, error 
-      FROM "BackgroundJob" 
-      WHERE type = 'BACKLINK_VERIFICATION' 
-        AND payload->>'backlinkId' = ${backlinkId} 
-      ORDER BY created_at DESC 
-      LIMIT 1
-    `;
+    // Safely get the most recent job for this backlink using Prisma ORM
+    const latestJob = await prisma.backgroundJob.findFirst({
+      where: {
+        type: 'BACKLINK_VERIFICATION',
+        payload: {
+          path: ['backlinkId'],
+          equals: backlinkId,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        status: true,
+        error: true,
+      },
+    });
 
-    if (jobs.length === 0) {
+    if (!latestJob) {
       res.json({ job: null });
       return;
     }
 
-    const latestJob = jobs[0];
     res.json({
       job: {
         id: latestJob.id,
         status: latestJob.status,
         error: latestJob.error ? 'Verification failed' : null,
-      }
+      },
     });
   } catch (error) {
     console.error('[Get Verification Job Error]', error);

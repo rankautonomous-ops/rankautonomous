@@ -125,9 +125,9 @@ async function runTests() {
     const testBacklink = await prisma.backlink.create({
       data: {
         websiteId: MOCK_WEBSITE_ID,
-        sourceUrl: 'https://source-ref.com/page-1',
+        sourceUrl: 'https://example.com',
         targetUrl: 'https://site-a.com/target',
-        referringDomain: 'source-ref.com',
+        referringDomain: 'example.com',
         status: 'ACTIVE',
       },
     });
@@ -389,6 +389,11 @@ async function runTests() {
     // ----------------------------------------------------
     // TEST 10: Render Mode Routing - Render Worker claims Render-owned & legacy jobs
     // ----------------------------------------------------
+    await prisma.backgroundJob.updateMany({
+      where: { status: { in: ['QUEUED', 'PROCESSING'] } },
+      data: { status: 'COMPLETED' },
+    });
+
     // 10a: Explicit executionProvider = 'render'
     const renderJob = await prisma.backgroundJob.create({
       data: {
@@ -443,6 +448,61 @@ async function runTests() {
     await QueueService.completeJob(crawlJob.id);
 
     pass('11. Non-backlink jobs: SEO_CRAWL, GOOGLE_SYNC, and AI jobs claimed normally by Render Worker');
+
+    // ----------------------------------------------------
+    // TEST 12: GET /verification-job status lookup (regression test for column created_at error 42703)
+    // ----------------------------------------------------
+    // Create an active backlink job
+    const pollTestBacklink = await prisma.backlink.create({
+      data: {
+        websiteId: MOCK_WEBSITE_ID,
+        sourceUrl: 'https://example.com/poll',
+        targetUrl: 'https://site-a.com/target',
+        referringDomain: 'example.com',
+        status: 'ACTIVE',
+      },
+    });
+
+    const verifyRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/${pollTestBacklink.id}/verify`)
+      .set(authHeadersA);
+
+    assert.strictEqual(verifyRes.status, 202);
+    const verifyJobId = verifyRes.body.jobId;
+    assert.ok(verifyJobId);
+
+    // Poll status using GET endpoint
+    const pollRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/${pollTestBacklink.id}/verification-job`)
+      .set(authHeadersA);
+
+    assert.strictEqual(pollRes.status, 200);
+    assert.ok(pollRes.body.job, 'Job object must be returned');
+    assert.strictEqual(pollRes.body.job.id, verifyJobId);
+    assert.strictEqual(pollRes.body.job.status, 'QUEUED');
+    assert.strictEqual(pollRes.body.job.error, null);
+    pass('12. GET /verification-job: Correctly returns latest job status without column "created_at" error');
+
+    // ----------------------------------------------------
+    // TEST 13: GET /verification-job returns null when no job exists
+    // ----------------------------------------------------
+    const unverifiedBacklink = await prisma.backlink.create({
+      data: {
+        websiteId: MOCK_WEBSITE_ID,
+        sourceUrl: 'https://example.com/no-job',
+        targetUrl: 'https://site-a.com/target',
+        referringDomain: 'example.com',
+        status: 'ACTIVE',
+      },
+    });
+
+    const nullJobRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/${unverifiedBacklink.id}/verification-job`)
+      .set(authHeadersA);
+
+    assert.strictEqual(nullJobRes.status, 200);
+    assert.strictEqual(nullJobRes.body.job, null);
+    pass('13. GET /verification-job: Returns { job: null } when no verification job has been queued');
   } catch (err: any) {
     fail('Unhandled test failure', err);
   } finally {
