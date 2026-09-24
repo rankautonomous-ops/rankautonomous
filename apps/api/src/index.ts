@@ -40,11 +40,13 @@ app.get('/', (req, res) => {
 });
 
 import { recommendationsRouter } from './routes/recommendations';
+import reportsRouter from './routes/reports';
 
 app.use('/api', userRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/websites', websiteRouter);
 app.use('/api/websites/:websiteId/recommendations', recommendationsRouter);
+app.use('/api/websites/:websiteId/reports', reportsRouter);
 app.use('/api/websites/:websiteId', backlinksRouter);
 app.use('/api/websites/:websiteId/competitors', competitorsRouter);
 app.use('/api/integrations', integrationsRouter);

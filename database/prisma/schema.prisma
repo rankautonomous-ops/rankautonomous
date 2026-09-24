@@ -195,6 +195,7 @@ model Website {
   crawlJobs             CrawlJob[]
   searchPerformanceRecords SearchPerformanceRecord[]
   seoRecommendations    SeoRecommendation[]
+  seoMonthlyReports     SeoMonthlyReport[]
 
   @@index([userId])
 }
@@ -673,3 +674,58 @@ model SeoRecommendation {
   @@index([deduplicationKey])
   @@unique([websiteId, deduplicationKey])
 }
+
+enum ReportStatus {
+  GENERATING
+  READY
+  FAILED
+}
+
+model SeoMonthlyReport {
+  id                        String       @id @default(uuid())
+  websiteId                 String
+  website                   Website      @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  reportMonth               Int          // 1-12
+  reportYear                Int          // e.g. 2026
+  periodStart               DateTime
+  periodEnd                 DateTime
+  status                    ReportStatus @default(GENERATING)
+  
+  seoScore                  Float?
+  previousSeoScore          Float?
+  
+  organicClicks             Int?
+  previousOrganicClicks     Int?
+  organicImpressions        Int?
+  previousOrganicImpressions Int?
+  organicCtr                Float?
+  previousOrganicCtr        Float?
+  averagePosition           Float?
+  previousAveragePosition   Float?
+  
+  organicSessions           Int?
+  previousOrganicSessions   Int?
+  
+  keywordsTracked           Int?
+  keywordsImproved          Int?
+  keywordsDeclined          Int?
+  
+  backlinksAcquired         Int?
+  backlinksLost             Int?
+  
+  recommendationsCompleted  Int?
+  recommendationsOpen       Int?
+  
+  articlesPublished         Int?
+  
+  reportData                Json?        // Structured detailed data
+
+  generatedAt               DateTime?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  @@unique([websiteId, reportYear, reportMonth])
+  @@index([websiteId])
+  @@index([reportYear, reportMonth])
+}
+
