@@ -7,6 +7,7 @@ import { createClient } from '../../../lib/supabase/client';
 import styles from './integrations.module.css';
 import { AlertCircle, BarChart3, CheckCircle2, Globe, Search, Trash2, Settings, Loader2 } from 'lucide-react';
 import PropertySelectionModal from './PropertySelectionModal';
+import CmsConnections from './CmsConnections';
 
 function IntegrationsContent() {
   const [activeWebsite, setActiveWebsite] = useState<any>(null);
@@ -355,6 +356,9 @@ function IntegrationsContent() {
           fetchIntegrations();
         }}
       />
+
+      {/* Render CMS Connections section below Analytics and GSC */}
+      <CmsConnections websiteId={activeWebsite?.id} apiUrl={apiUrl} supabase={supabase} />
     </div>
   );
 }

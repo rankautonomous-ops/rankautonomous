@@ -196,6 +196,7 @@ model Website {
   searchPerformanceRecords SearchPerformanceRecord[]
   seoRecommendations    SeoRecommendation[]
   seoMonthlyReports     SeoMonthlyReport[]
+  cmsConnections        CmsConnection[]
 
   @@index([userId])
 }
@@ -316,6 +317,8 @@ model Article {
   cmsPublicationInfo    Json?
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
+
+  publications          ArticlePublication[]
 
   @@index([websiteId])
   @@index([status])
@@ -729,3 +732,60 @@ model SeoMonthlyReport {
   @@index([reportYear, reportMonth])
 }
 
+
+
+enum CmsProvider {
+  WORDPRESS
+  SHOPIFY
+  WEBFLOW
+  CUSTOM
+}
+
+enum CmsConnectionStatus {
+  CONNECTED
+  ERROR
+  DISCONNECTED
+}
+
+model CmsConnection {
+  id              String              @id @default(uuid())
+  websiteId       String
+  website         Website             @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  provider        CmsProvider
+  name            String
+  status          CmsConnectionStatus @default(CONNECTED)
+  baseUrl         String?
+  credentials     String?             // Encrypted JSON
+  metadata        Json?
+  lastTestedAt    DateTime?
+  lastError       String?             @db.Text
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  publications    ArticlePublication[]
+
+  @@index([websiteId])
+}
+
+enum PublicationStatus {
+  PUBLISHED
+  FAILED
+}
+
+model ArticlePublication {
+  id               String            @id @default(uuid())
+  articleId        String
+  article          Article           @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  cmsConnectionId  String
+  cmsConnection    CmsConnection     @relation(fields: [cmsConnectionId], references: [id], onDelete: Cascade)
+  remoteId         String?
+  remoteUrl        String?
+  status           PublicationStatus @default(PUBLISHED)
+  publishedAt      DateTime?
+  lastError        String?           @db.Text
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([articleId, cmsConnectionId])
+  @@index([cmsConnectionId])
+}

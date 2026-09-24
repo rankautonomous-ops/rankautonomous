@@ -10,9 +10,7 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
 
-  useEffect(() => {
-    fetchReports();
-  }, [website]);
+  // fetchReports defined below
 
   const fetchReports = async () => {
     if (!website) return;
@@ -37,6 +35,10 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchReports();
+  }, [website]);
 
   const generateReport = async () => {
     if (!website) return;

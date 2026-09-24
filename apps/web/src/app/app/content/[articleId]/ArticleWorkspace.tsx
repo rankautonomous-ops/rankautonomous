@@ -21,15 +21,17 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // WordPress CMS state
-  const [wpIntegration, setWpIntegration] = useState<{ connected: boolean; integration?: any } | null>(null);
+  const [cmsConnections, setCmsConnections] = useState<any[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccessMsg, setPublishSuccessMsg] = useState<string | null>(null);
   const [showWpModal, setShowWpModal] = useState(false);
-  const [wpUrl, setWpUrl] = useState('');
-  const [wpUsername, setWpUsername] = useState('');
-  const [wpPassword, setWpPassword] = useState('');
-  const [wpConnecting, setWpConnecting] = useState(false);
-  const [wpError, setWpError] = useState<string | null>(null);
+  const [showCmsModal, setShowCmsModal] = useState(false);
+  const [selectedCms, setSelectedCms] = useState('');
+  
+  
+  
+  
+  
 
   const router = useRouter();
   const supabase = createClient();
@@ -71,21 +73,15 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
 
       // Check WordPress integration
       try {
-        const wpRes = await fetch(`${apiUrl}/api/websites/${targetSite.id}/integrations/wordpress`, {
+        const connRes = await fetch(`${apiUrl}/api/websites/${targetSite.id}/cms-connections`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
-        if (wpRes.ok) {
-          const wpData = await wpRes.json();
-          setWpIntegration(wpData);
-          if (wpData.integration?.config?.siteUrl) {
-            setWpUrl(wpData.integration.config.siteUrl);
-          }
-          if (wpData.integration?.config?.username) {
-            setWpUsername(wpData.integration.config.username);
-          }
+        if (connRes.ok) {
+          const connData = await connRes.json();
+          setCmsConnections(connData.connections || []);
         }
-      } catch (wpErr) {
-        console.warn('WordPress integration check error:', wpErr);
+      } catch (connErr) {
+        console.warn('CMS connections check error:', connErr);
       }
 
       // If there is an active job, poll for completion
@@ -174,40 +170,11 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
     }
   };
 
-  const handleConnectWordPress = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setWpConnecting(true);
-    setWpError(null);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/integrations/wordpress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          siteUrl: wpUrl,
-          username: wpUsername,
-          applicationPassword: wpPassword,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to connect WordPress');
-      }
-      setWpIntegration({ connected: true, integration: data.integration });
-      setShowWpModal(false);
-      setWpPassword('');
-      alert('WordPress site connected successfully!');
-    } catch (err: any) {
-      setWpError(err.message || 'Connection failed');
-    } finally {
-      setWpConnecting(false);
-    }
-  };
+  
 
-  const handlePublishArticle = async (postStatus: 'publish' | 'draft' = 'publish') => {
+  const handlePublishArticle = async (postStatus: 'publish' | 'draft' = 'publish', overrideCmsId?: string) => {
+    const targetCmsId = overrideCmsId || selectedCms;
+    if (!targetCmsId) return alert('Please select a CMS connection.');
     setIsPublishing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -217,21 +184,18 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ postStatus }),
+        body: JSON.stringify({ postStatus, cmsConnectionId: targetCmsId }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to publish to WordPress');
+        throw new Error(data.message || 'Failed to publish');
       }
-      setArticle(data.article);
-      setPublishSuccessMsg(
-        postStatus === 'publish'
-          ? `Successfully published to WordPress! Post #${data.publicationInfo.postId}`
-          : `Saved as draft on WordPress! Post #${data.publicationInfo.postId}`
-      );
-      setTimeout(() => setPublishSuccessMsg(null), 6000);
+      setArticle((prev: any) => ({...prev, status: 'PUBLISHED'})); // Refresh happens on checkJobStatus or fetch
+      setPublishSuccessMsg(`Successfully published! Remote ID: ${data.remoteId}`);
+      setShowCmsModal(false);
+      setTimeout(() => { setPublishSuccessMsg(null); fetchWorkspaceData(); }, 3000);
     } catch (err: any) {
-      alert(err.message || 'Error publishing to WordPress');
+      alert(err.message || 'Error publishing');
     } finally {
       setIsPublishing(false);
     }
@@ -516,38 +480,26 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                 </div>
               )}
 
-              {wpIntegration?.connected ? (
+              {cmsConnections.length > 0 ? (
                 <>
                   <button 
                     className={styles.primaryButton} 
                     disabled={isProcessing || isPublishing}
-                    onClick={() => handlePublishArticle('publish')}
-                    style={{ width: '100%' }}
+                    onClick={() => setShowCmsModal(true)}
+                    style={{ width: '100%', marginBottom: '8px' }}
                   >
                     {isPublishing ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} />}
-                    Publish to WordPress
-                  </button>
-                  <button 
-                    className={styles.secondaryButton} 
-                    disabled={isProcessing || isPublishing}
-                    onClick={() => handlePublishArticle('draft')}
-                    style={{ width: '100%' }}
-                  >
-                    Save as WordPress Draft
+                    Publish to CMS
                   </button>
                 </>
               ) : (
                 <div style={{ padding: '12px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', textAlign: 'center', marginBottom: '8px' }}>
                   <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
-                    WordPress is not connected. Connect your site to publish directly.
+                    No CMS connected. Connect a CMS to publish directly.
                   </p>
-                  <button
-                    className={styles.secondaryButton}
-                    onClick={() => setShowWpModal(true)}
-                    style={{ width: '100%', fontSize: '13px' }}
-                  >
-                    <Globe size={14} /> Connect WordPress
-                  </button>
+                  <Link href="/app/integrations" className={styles.secondaryButton} style={{ display: 'block', width: '100%', fontSize: '13px', textDecoration: 'none' }}>
+                    <Globe size={14} style={{ display: 'inline', marginRight: '6px' }} /> Go to Integrations
+                  </Link>
                 </div>
               )}
 
@@ -616,7 +568,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                 </div>
               )}
 
-              {(!article.cmsPublicationInfo || article.cmsPublicationInfo.provider !== 'WORDPRESS') && wpIntegration?.connected && (
+              {(!article.publications || article.publications.length === 0) && cmsConnections.length > 0 && (
                 <button
                   className={styles.primaryButton}
                   disabled={isPublishing}
@@ -798,101 +750,58 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
         </div>
       </div>
 
-      {/* WordPress Connection Modal */}
-      {showWpModal && (
+      {/* CMS Connection Modal */}
+      {showCmsModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
           <div className={styles.card} style={{ maxWidth: '480px', width: '100%', background: 'var(--surface-raised, #ffffff)', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>
-                Connect WordPress Site
+                Publish Article
               </h3>
               <button
-                onClick={() => setShowWpModal(false)}
+                onClick={() => setShowCmsModal(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
-              Enable 1-click publishing to your WordPress blog using official WordPress Application Passwords.
-            </p>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginBottom: '8px' }}>
+                Select CMS Connection
+              </label>
+              <select 
+                className={styles.input} 
+                style={{ width: '100%' }} 
+                value={selectedCms} 
+                onChange={e => setSelectedCms(e.target.value)}
+              >
+                <option value="">Select a CMS...</option>
+                {cmsConnections.filter(c => c.status === 'CONNECTED').map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>
+                ))}
+              </select>
+            </div>
 
-            {wpError && (
-              <div style={{ padding: '10px 12px', background: 'var(--error-light, #fef2f2)', border: '1px solid var(--error, #ef4444)', borderRadius: 'var(--radius-sm)', color: 'var(--error, #b91c1c)', fontSize: '13px', marginBottom: '16px' }}>
-                <AlertCircle size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }} />
-                {wpError}
-              </div>
-            )}
-
-            <form onSubmit={handleConnectWordPress}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginBottom: '4px' }}>
-                  WordPress Site URL
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://myblog.com"
-                  value={wpUrl}
-                  onChange={(e) => setWpUrl(e.target.value)}
-                  className={styles.input}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginBottom: '4px' }}>
-                  WordPress Username
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="admin or editor_user"
-                  value={wpUsername}
-                  onChange={(e) => setWpUsername(e.target.value)}
-                  className={styles.input}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginBottom: '4px' }}>
-                  Application Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="xxxx xxxx xxxx xxxx"
-                  value={wpPassword}
-                  onChange={(e) => setWpPassword(e.target.value)}
-                  className={styles.input}
-                  style={{ width: '100%' }}
-                />
-                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Generated in WP Admin &gt; Users &gt; Profile &gt; Application Passwords.
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setShowWpModal(false)}
-                  disabled={wpConnecting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.primaryButton}
-                  disabled={wpConnecting}
-                >
-                  {wpConnecting ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} />}
-                  {wpConnecting ? 'Verifying...' : 'Connect & Verify'}
-                </button>
-              </div>
-            </form>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => handlePublishArticle('draft')}
+                disabled={isPublishing || !selectedCms}
+              >
+                Save as Draft
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => handlePublishArticle('publish')}
+                disabled={isPublishing || !selectedCms}
+              >
+                {isPublishing ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} />}
+                Publish Live
+              </button>
+            </div>
           </div>
         </div>
       )}
