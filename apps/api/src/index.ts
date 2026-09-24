@@ -14,7 +14,21 @@ import { isConfigured } from './lib/env';
 const app = express();
 const port = process.env.PORT || 4000;
 
-app.use(cors());
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  process.env.CORS_ORIGIN,
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'test') {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 
 // CRITICAL: Stripe Webhook must receive raw body buffer for signature verification
 // This middleware MUST be registered BEFORE express.json()
