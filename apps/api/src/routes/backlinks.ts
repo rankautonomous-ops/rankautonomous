@@ -3,7 +3,12 @@ import { requireAuth } from '../middleware/auth';
 import { requireSubscription } from '../middleware/subscription';
 import prisma from '../lib/database';
 import { validateAndNormalizeUrl } from './website';
-import { OpportunityStatus, BacklinkOpportunityType } from '@prisma/client';
+import { OpportunityStatus, BacklinkOpportunityType, CampaignStatus } from '@prisma/client';
+import { discoverOpportunities } from '../services/backlinks/discovery/discoverOpportunities';
+import { qualifyOpportunity } from '../services/backlinks/qualifyOpportunity';
+import { generateOutreachMessage } from '../services/backlinks/generateOutreach';
+import { QueueService } from '../services/queue';
+import { backlinkVerificationTask } from '../trigger/backlinkVerification';
 
 const router = Router({ mergeParams: true });
 
@@ -54,6 +59,199 @@ async function verifyWebsiteOwnership(req: Request, res: Response, next: NextFun
 
 // Ensure all routes require auth, subscription, and ownership
 router.use(requireAuth, requireSubscription, verifyWebsiteOwnership);
+
+// ============================================================================
+// DISCOVERY & OUTREACH ENDPOINTS
+// ============================================================================
+
+router.post('/discover', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId } = req.params;
+  try {
+    const candidates = await discoverOpportunities(websiteId, req.body);
+    res.json({ candidates });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.post('/backlink-opportunities/:id/qualify', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId, id } = req.params;
+  try {
+    const updated = await qualifyOpportunity(id, websiteId);
+    res.json(updated);
+  } catch (error: any) {
+    if (error.message === 'Opportunity not found' || error.message === 'Website not found') {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.get('/campaigns', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId } = req.params;
+  try {
+    const campaigns = await prisma.backlinkCampaign.findMany({
+      where: { websiteId },
+      include: { opportunity: true },
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json({ data: campaigns });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.post('/campaigns', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId } = req.params;
+  const { opportunityId } = req.body;
+  if (!opportunityId) {
+    res.status(400).json({ error: 'Missing opportunityId' });
+    return;
+  }
+  try {
+    const opp = await prisma.backlinkOpportunity.findUnique({ where: { id: opportunityId } });
+    if (!opp || opp.websiteId !== websiteId) {
+      res.status(404).json({ error: 'Opportunity not found' });
+      return;
+    }
+
+    // Prevent duplicate campaign creation for the same opportunity unless intentional. We enforce 1 active campaign here.
+    const existing = await prisma.backlinkCampaign.findFirst({
+      where: { opportunityId, websiteId, status: { notIn: ['COMPLETED', 'CANCELLED'] } }
+    });
+    if (existing) {
+      res.status(409).json({ error: 'Active campaign already exists for this opportunity' });
+      return;
+    }
+
+    const campaign = await prisma.backlinkCampaign.create({
+      data: {
+        websiteId,
+        opportunityId,
+        status: 'DRAFT'
+      }
+    });
+
+    // Update opportunity status
+    await prisma.backlinkOpportunity.update({
+      where: { id: opportunityId },
+      data: { campaignId: campaign.id, status: 'READY' }
+    });
+
+    res.status(201).json(campaign);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.patch('/campaigns/:campaignId', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId, campaignId } = req.params;
+  const { contactName, contactEmail, subject, message, notes } = req.body;
+  try {
+    const existing = await prisma.backlinkCampaign.findUnique({ where: { id: campaignId } });
+    if (!existing || existing.websiteId !== websiteId) {
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
+    }
+    
+    const updated = await prisma.backlinkCampaign.update({
+      where: { id: campaignId },
+      data: {
+        contactName: contactName !== undefined ? contactName : undefined,
+        contactEmail: contactEmail !== undefined ? contactEmail : undefined,
+        subject: subject !== undefined ? subject : undefined,
+        message: message !== undefined ? message : undefined,
+        notes: notes !== undefined ? notes : undefined
+      }
+    });
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.post('/campaigns/:campaignId/status', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId, campaignId } = req.params;
+  const { status } = req.body;
+  
+  if (!status || !Object.values(CampaignStatus).includes(status)) {
+    res.status(400).json({ error: 'Invalid status' });
+    return;
+  }
+  
+  try {
+    const existing = await prisma.backlinkCampaign.findUnique({ where: { id: campaignId } });
+    if (!existing || existing.websiteId !== websiteId) {
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
+    }
+
+    const data: any = { status };
+    if (status === 'CONTACTED' && !existing.sentAt) data.sentAt = new Date();
+    if (status === 'REPLIED' && !existing.respondedAt) data.respondedAt = new Date();
+    
+    const updated = await prisma.backlinkCampaign.update({
+      where: { id: campaignId },
+      data
+    });
+
+    // Mirror some statuses back to opportunity
+    let oppStatus = null;
+    if (status === 'CONTACTED') oppStatus = 'CONTACTED';
+    if (status === 'REPLIED') oppStatus = 'REPLIED';
+    if (status === 'ACCEPTED') oppStatus = 'ACCEPTED';
+    if (status === 'REJECTED') oppStatus = 'REJECTED';
+    
+    if (oppStatus) {
+      await prisma.backlinkOpportunity.update({
+        where: { id: existing.opportunityId },
+        data: { status: oppStatus as OpportunityStatus }
+      });
+    }
+
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.delete('/campaigns/:campaignId', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId, campaignId } = req.params;
+  try {
+    const existing = await prisma.backlinkCampaign.findUnique({ where: { id: campaignId } });
+    if (!existing || existing.websiteId !== websiteId) {
+      res.status(404).json({ error: 'Campaign not found' });
+      return;
+    }
+
+    await prisma.backlinkCampaign.delete({ where: { id: campaignId } });
+
+    // Reset opportunity status if it was tied to this campaign
+    await prisma.backlinkOpportunity.updateMany({
+      where: { campaignId },
+      data: { campaignId: null, status: 'QUALIFIED' }
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.post('/campaigns/:campaignId/generate-message', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId, campaignId } = req.params;
+  try {
+    const updated = await generateOutreachMessage(campaignId, websiteId);
+    res.json(updated);
+  } catch (error: any) {
+    if (error.message === 'Campaign not found' || error.message === 'Website not found') {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
 
 // ============================================================================
 // OPPORTUNITY ENDPOINTS
@@ -306,7 +504,7 @@ router.patch('/backlink-opportunities/:id/status', async (req: Request, res: Res
         }
 
         // Create the backlink
-        await prisma.backlink.create({
+        const newBacklink = await prisma.backlink.create({
           data: {
             websiteId,
             sourceUrl: sourceCheck.normalizedUrl,
@@ -316,6 +514,20 @@ router.patch('/backlink-opportunities/:id/status', async (req: Request, res: Res
             status: 'ACTIVE'
           }
         });
+
+        // Queue verification immediately
+        const useTrigger = process.env.USE_TRIGGER_BACKLINK_VERIFICATION === 'true';
+        const payload: any = { backlinkId: newBacklink.id };
+        if (useTrigger) payload.executionProvider = 'trigger';
+        
+        const job = await QueueService.enqueue('BACKLINK_VERIFICATION', payload);
+        if (useTrigger) {
+          try {
+            await backlinkVerificationTask.trigger({ backlinkId: newBacklink.id, jobId: job.id });
+          } catch (err: any) {
+            await prisma.backgroundJob.update({ where: { id: job.id }, data: { status: 'FAILED' } });
+          }
+        }
       }
     }
 
@@ -504,10 +716,7 @@ router.delete('/backlinks/:id', async (req: Request, res: Response) => {
   }
 });
 
-import { QueueService } from '../services/queue';
-import { backlinkVerificationTask } from '../trigger/backlinkVerification';
-
-// Queue Backlink Verification
+  // Queue Backlink Verification
 router.post('/backlinks/:id/verify', async (req: Request, res: Response) => {
   const { websiteId, id: backlinkId } = req.params;
 

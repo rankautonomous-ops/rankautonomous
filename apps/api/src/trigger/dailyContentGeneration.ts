@@ -1,6 +1,6 @@
 import { task, logger } from '@trigger.dev/sdk/v3';
 import prisma from '../lib/database';
-import { generateArticleContent } from '../services/articleGenerator';
+import { generateArticle } from '../services/aiContent/index';
 
 export const dailyContentGeneration = task({
   id: 'daily-content-generation',
@@ -26,8 +26,6 @@ export const dailyContentGeneration = task({
       return { success: false, message: 'Automation disabled' };
     }
 
-    // 1. Find today's eligible scheduled content item.
-    // It should be PLANNED or SCHEDULED and scheduledAt should be today or in the past.
     const articleToGenerate = await prisma.article.findFirst({
       where: {
         websiteId: payload.websiteId,
@@ -42,7 +40,6 @@ export const dailyContentGeneration = task({
       return { success: false, message: 'No eligible articles' };
     }
 
-    // Check if we already generated an article today to prevent multiple executions
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     
@@ -50,18 +47,15 @@ export const dailyContentGeneration = task({
       where: {
         websiteId: payload.websiteId,
         status: { in: ['DRAFT', 'AI_REVIEW', 'USER_REVIEW', 'APPROVED', 'PUBLISHED'] },
-        updatedAt: { gte: startOfDay } // Roughly, any activity today
+        updatedAt: { gte: startOfDay } 
       }
     });
 
     if (generatedToday) {
-      // It's possible the user edited something else, but strictly speaking "max 1 daily automated article"
-      // Wait, we can track automation executions. Let's just rely on the specific article transitioning.
-      // Better yet, just limit this task to 1 success per day.
-      // For now, let's proceed to generate `articleToGenerate`.
+      logger.info('An article was already generated today. Skipping.');
+      return { success: false, message: 'Daily limit reached' };
     }
 
-    // 3. Lock/prevent duplicate processing
     const updated = await prisma.article.updateMany({
       where: {
         id: articleToGenerate.id,
@@ -75,32 +69,24 @@ export const dailyContentGeneration = task({
       return { success: false, message: 'Concurrency conflict' };
     }
 
-    // 4. Generate the article
     try {
       logger.info(`Generating article for: ${articleToGenerate.topic || articleToGenerate.primaryKeyword}`);
       
-      const generationResult = await generateArticleContent(website.id, {
-        topic: articleToGenerate.topic || '',
-        primaryKeyword: articleToGenerate.primaryKeyword || '',
-        wordCount: articleToGenerate.wordCount || 1500
-      });
-
-      // 6. Save the article
-      // 7. Move it to USER_REVIEW (since AI review will happen implicitly if configured, or just move to USER_REVIEW)
-      await prisma.article.update({
-        where: { id: articleToGenerate.id },
+      const job = await prisma.aiJob.create({
         data: {
-          title: generationResult.title,
-          metaDescription: generationResult.metaDescription,
-          content: generationResult.content,
-          seoData: generationResult.seoData || {},
-          status: 'USER_REVIEW',
-          generationMetadata: {
-            generatedAt: new Date(),
-            source: 'daily-automation'
-          }
+          userId: website.userId,
+          websiteId: website.id,
+          type: 'GENERATE_ARTICLE',
+          payload: { articleId: articleToGenerate.id }
         }
       });
+      
+      await prisma.article.update({
+        where: { id: articleToGenerate.id },
+        data: { generationJobId: job.id }
+      });
+
+      await generateArticle(job.id);
 
       logger.info(`Successfully generated article: ${articleToGenerate.id}`);
       return { success: true, articleId: articleToGenerate.id };
@@ -108,13 +94,12 @@ export const dailyContentGeneration = task({
     } catch (err: any) {
       logger.error('Failed to generate article', { error: err.message });
       
-      // Revert status to FAILED
       await prisma.article.update({
         where: { id: articleToGenerate.id },
         data: { status: 'FAILED' }
       });
 
-      throw err; // Trigger.dev retry
+      throw err;
     }
   }
 });

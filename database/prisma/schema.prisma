@@ -187,6 +187,7 @@ model Website {
   keywords              Keyword[]
   articles              Article[]
   backlinkOpportunities BacklinkOpportunity[]
+  backlinkCampaigns     BacklinkCampaign[]
   backlinks             Backlink[]
   competitors           Competitor[]
   integrations          Integration[]
@@ -336,6 +337,8 @@ model BacklinkOpportunity {
   status             OpportunityStatus       @default(DISCOVERED)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
+
+  campaigns          BacklinkCampaign[]
 
   @@index([websiteId])
   @@index([websiteId, status])
@@ -557,4 +560,37 @@ model Competitor {
   @@index([websiteId, domain])
   @@index([status])
   @@unique([websiteId, domain])
+}
+
+enum CampaignStatus {
+  DRAFT
+  READY
+  CONTACTED
+  REPLIED
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model BacklinkCampaign {
+  id            String             @id @default(uuid())
+  websiteId     String
+  website       Website            @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   BacklinkOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  status        CampaignStatus     @default(DRAFT)
+  contactName   String?
+  contactEmail  String?
+  subject       String?
+  message       String?            @db.Text
+  sentAt        DateTime?
+  respondedAt   DateTime?
+  notes         String?            @db.Text
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([websiteId])
+  @@index([opportunityId])
+  @@index([websiteId, status])
 }
