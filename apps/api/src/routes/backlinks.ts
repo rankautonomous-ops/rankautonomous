@@ -64,7 +64,7 @@ router.use(requireAuth, requireSubscription, verifyWebsiteOwnership);
 // DISCOVERY & OUTREACH ENDPOINTS
 // ============================================================================
 
-router.post('/discover', async (req: Request, res: Response): Promise<void> => {
+router.post('/backlinks/discover', async (req: Request, res: Response): Promise<void> => {
   const { websiteId } = req.params;
   try {
     const candidates = await discoverOpportunities(websiteId, req.body);
@@ -88,7 +88,7 @@ router.post('/backlink-opportunities/:id/qualify', async (req: Request, res: Res
   }
 });
 
-router.get('/campaigns', async (req: Request, res: Response): Promise<void> => {
+router.get('/backlinks/campaigns', async (req: Request, res: Response): Promise<void> => {
   const { websiteId } = req.params;
   try {
     const campaigns = await prisma.backlinkCampaign.findMany({
@@ -102,7 +102,7 @@ router.get('/campaigns', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/campaigns', async (req: Request, res: Response): Promise<void> => {
+router.post('/backlinks/campaigns', async (req: Request, res: Response): Promise<void> => {
   const { websiteId } = req.params;
   const { opportunityId } = req.body;
   if (!opportunityId) {
@@ -145,7 +145,7 @@ router.post('/campaigns', async (req: Request, res: Response): Promise<void> => 
   }
 });
 
-router.patch('/campaigns/:campaignId', async (req: Request, res: Response): Promise<void> => {
+router.patch('/backlinks/campaigns/:campaignId', async (req: Request, res: Response): Promise<void> => {
   const { websiteId, campaignId } = req.params;
   const { contactName, contactEmail, subject, message, notes } = req.body;
   try {
@@ -171,7 +171,7 @@ router.patch('/campaigns/:campaignId', async (req: Request, res: Response): Prom
   }
 });
 
-router.post('/campaigns/:campaignId/status', async (req: Request, res: Response): Promise<void> => {
+router.post('/backlinks/campaigns/:campaignId/status', async (req: Request, res: Response): Promise<void> => {
   const { websiteId, campaignId } = req.params;
   const { status } = req.body;
   
@@ -216,7 +216,7 @@ router.post('/campaigns/:campaignId/status', async (req: Request, res: Response)
   }
 });
 
-router.delete('/campaigns/:campaignId', async (req: Request, res: Response): Promise<void> => {
+router.delete('/backlinks/campaigns/:campaignId', async (req: Request, res: Response): Promise<void> => {
   const { websiteId, campaignId } = req.params;
   try {
     const existing = await prisma.backlinkCampaign.findUnique({ where: { id: campaignId } });
@@ -239,7 +239,7 @@ router.delete('/campaigns/:campaignId', async (req: Request, res: Response): Pro
   }
 });
 
-router.post('/campaigns/:campaignId/generate-message', async (req: Request, res: Response): Promise<void> => {
+router.post('/backlinks/campaigns/:campaignId/generate-message', async (req: Request, res: Response): Promise<void> => {
   const { websiteId, campaignId } = req.params;
   try {
     const updated = await generateOutreachMessage(campaignId, websiteId);
@@ -374,6 +374,14 @@ router.post('/backlink-opportunities', async (req: Request, res: Response) => {
   }
 
   try {
+    const existing = await prisma.backlinkOpportunity.findFirst({
+      where: { websiteId, domain }
+    });
+    if (existing) {
+      res.status(409).json({ error: 'Conflict', message: 'An opportunity for this domain already exists.' });
+      return;
+    }
+
     const opp = await prisma.backlinkOpportunity.create({
       data: {
         websiteId,
