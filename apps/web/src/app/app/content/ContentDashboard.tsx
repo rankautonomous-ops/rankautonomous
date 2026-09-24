@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
 import { Plus, FileText, Type, Tag, Calendar, ArrowRight, Sparkles } from 'lucide-react';
 import styles from '../app.module.css';
@@ -13,17 +13,20 @@ export default function ContentDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter Tabs: All, Ideas, Drafts, Review, Approved, Published
-  const [activeTab, setActiveTab] = useState<'ALL' | 'IDEA' | 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED'>('ALL');
+  // Filter Tabs: All, Calendar, Ideas, Drafts, Review, Approved, Published
+  const [activeTab, setActiveTab] = useState<'ALL' | 'CALENDAR' | 'IDEA' | 'DRAFT' | 'REVIEW' | 'APPROVED' | 'PUBLISHED'>('ALL');
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const keywordParam = searchParams.get('keyword');
 
   // New Article Form
   const [isCreating, setIsCreating] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newTopic, setNewTopic] = useState('');
-  const [newTargetKeyword, setNewTargetKeyword] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(!!keywordParam);
+  const [newTopic, setNewTopic] = useState(keywordParam || '');
+  const [newTargetKeyword, setNewTargetKeyword] = useState(keywordParam || '');
   const [newWordCount, setNewWordCount] = useState(1500);
 
-  const router = useRouter();
   const supabase = createClient();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -109,18 +112,24 @@ export default function ContentDashboard() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'PLANNED': return <span className={`${contentStyles.badge} ${contentStyles.badgeIdea}`}>Planned</span>;
+      case 'SCHEDULED': return <span className={`${contentStyles.badge} ${contentStyles.badgeIdea}`}>Scheduled</span>;
+      case 'GENERATING': return <span className={`${contentStyles.badge} ${contentStyles.badgeDraft}`}>Generating</span>;
       case 'IDEA': return <span className={`${contentStyles.badge} ${contentStyles.badgeIdea}`}>Idea</span>;
       case 'DRAFT': return <span className={`${contentStyles.badge} ${contentStyles.badgeDraft}`}>Draft</span>;
       case 'AI_REVIEW': return <span className={`${contentStyles.badge} ${contentStyles.badgeReview}`}>AI Review</span>;
       case 'USER_REVIEW': return <span className={`${contentStyles.badge} ${contentStyles.badgeReview}`}>User Review</span>;
       case 'APPROVED': return <span className={`${contentStyles.badge} ${contentStyles.badgeApproved}`}>Approved</span>;
       case 'PUBLISHED': return <span className={`${contentStyles.badge} ${contentStyles.badgePublished}`}>Published</span>;
+      case 'FAILED': return <span className={`${contentStyles.badge} ${contentStyles.badgeReview}`}>Failed</span>;
+      case 'CANCELLED': return <span className={`${contentStyles.badge} ${contentStyles.badgeDraft}`}>Cancelled</span>;
       default: return <span className={contentStyles.badge}>{status}</span>;
     }
   };
 
   const filteredArticles = articles.filter(art => {
     if (activeTab === 'ALL') return true;
+    if (activeTab === 'CALENDAR') return ['PLANNED', 'SCHEDULED', 'GENERATING'].includes(art.status);
     if (activeTab === 'IDEA') return art.status === 'IDEA';
     if (activeTab === 'DRAFT') return art.status === 'DRAFT';
     if (activeTab === 'REVIEW') return art.status === 'AI_REVIEW' || art.status === 'USER_REVIEW';
@@ -162,6 +171,13 @@ export default function ContentDashboard() {
           </button>
           <button
             type="button"
+            className={`${contentStyles.tabButton} ${activeTab === 'CALENDAR' ? contentStyles.tabButtonActive : ''}`}
+            onClick={() => setActiveTab('CALENDAR')}
+          >
+            Calendar ({articles.filter(a => ['PLANNED', 'SCHEDULED', 'GENERATING'].includes(a.status)).length})
+          </button>
+          <button
+            type="button"
             className={`${contentStyles.tabButton} ${activeTab === 'IDEA' ? contentStyles.tabButtonActive : ''}`}
             onClick={() => setActiveTab('IDEA')}
           >
@@ -197,14 +213,48 @@ export default function ContentDashboard() {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className={styles.primaryButton}
-        >
-          <Plus size={16} />
-          <span>{showCreateForm ? 'Cancel' : 'Create Article'}</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!activeWebsite || isCreating) return;
+              setIsCreating(true);
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/content-calendar/generate`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({ numberOfArticles: 5 })
+                });
+                if (res.ok) {
+                  fetchArticles(activeWebsite.id, session!.access_token);
+                  setActiveTab('CALENDAR');
+                } else {
+                  const errData = await res.json();
+                  alert(errData.error || 'Failed to generate content plan');
+                }
+              } catch (err) {
+                console.error(err);
+                alert('An unexpected error occurred');
+              } finally {
+                setIsCreating(false);
+              }
+            }}
+            className={styles.secondaryButton}
+            disabled={isCreating}
+          >
+            <Sparkles size={16} />
+            <span>Generate Plan</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className={styles.primaryButton}
+          >
+            <Plus size={16} />
+            <span>{showCreateForm ? 'Cancel' : 'Create Article'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Creation form dropdown card */}

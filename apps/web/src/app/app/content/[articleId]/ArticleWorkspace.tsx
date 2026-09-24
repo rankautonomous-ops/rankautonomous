@@ -413,14 +413,42 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
         </p>
 
         <div className={contentStyles.actionPanel} style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
-          {article.status === 'IDEA' && (
+          {['IDEA', 'PLANNED', 'SCHEDULED'].includes(article.status) && (
+            <>
+              <button 
+                className={styles.primaryButton} 
+                disabled={isProcessing}
+                onClick={() => handleAction('generate')}
+                style={{ width: '100%', marginBottom: '8px' }}
+              >
+                <Play size={16} /> Generate Article
+              </button>
+              <button 
+                className={styles.secondaryButton} 
+                disabled={isProcessing}
+                onClick={() => handleAction('transition', { targetStatus: 'CANCELLED' })}
+                style={{ width: '100%' }}
+              >
+                <X size={16} /> Cancel Plan
+              </button>
+            </>
+          )}
+
+          {article.status === 'GENERATING' && (
+            <div style={{ padding: '12px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+              <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary)' }} />
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>AI is currently generating this article...</p>
+            </div>
+          )}
+
+          {article.status === 'FAILED' && (
             <button 
               className={styles.primaryButton} 
               disabled={isProcessing}
               onClick={() => handleAction('generate')}
               style={{ width: '100%' }}
             >
-              <Play size={16} /> Generate Article
+              <RefreshCw size={16} /> Retry Generation
             </button>
           )}
 

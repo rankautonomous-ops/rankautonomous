@@ -39,12 +39,17 @@ enum SearchIntent {
 }
 
 enum ArticleStatus {
+  PLANNED
+  SCHEDULED
+  GENERATING
   IDEA
   DRAFT
   AI_REVIEW
   USER_REVIEW
   APPROVED
   PUBLISHED
+  FAILED
+  CANCELLED
 }
 
 enum BacklinkOpportunityType {
@@ -101,6 +106,13 @@ enum BacklinkVerificationStatus {
   UNVERIFIED
   VERIFIED
   MISSING
+  ERROR
+}
+
+enum CompetitorStatus {
+  DISCOVERED
+  ANALYZING
+  ANALYZED
   ERROR
 }
 
@@ -165,6 +177,9 @@ model Website {
   targetRegion       String?
   targetCity         String?
 
+  // Automation settings
+  contentAutomationEnabled Boolean @default(false)
+
   // Relationships
   seoAudits             SeoAudit[]
   seoStrategies         SeoStrategy[]
@@ -173,6 +188,7 @@ model Website {
   articles              Article[]
   backlinkOpportunities BacklinkOpportunity[]
   backlinks             Backlink[]
+  competitors           Competitor[]
   integrations          Integration[]
   analyticsSnapshots    AnalyticsSnapshot[]
   crawlJobs             CrawlJob[]
@@ -523,4 +539,22 @@ model BackgroundJob {
   updatedAt   DateTime  @updatedAt
   
   @@index([status, nextRunAt])
+}
+
+model Competitor {
+  id             String           @id @default(uuid())
+  websiteId      String
+  website        Website          @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  domain         String
+  url            String?
+  name           String?
+  status         CompetitorStatus @default(DISCOVERED)
+  analysisData   Json?            // e.g. { onPageSignals, contentThemes, keywordOpportunities, contentGaps, strengths, weaknesses }
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([websiteId])
+  @@index([websiteId, domain])
+  @@index([status])
+  @@unique([websiteId, domain])
 }

@@ -9,7 +9,7 @@ import {
 } from '../services/aiKeywordService';
 import { AiProviderError } from '../services/aiProvider';
 import { startCrawl } from '../services/crawler';
-import { addKeywords, importAiSuggestions, enrichKeywordsData } from '../services/keywordResearch';
+import { addKeywords, importAiSuggestions, enrichKeywordsData, discoverKeywords } from '../services/keywordResearch';
 import { SearchIntent, KeywordStatus } from '@prisma/client';
 import { startSeoAudit } from '../services/seoAudit';
 import { startSeoStrategy } from '../services/seoStrategy';
@@ -1681,6 +1681,38 @@ router.post(
 );
 
 router.post(
+  '/:id/keywords/discover',
+  requireAuth,
+  requireSubscription,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { seedKeywords, topic, location } = req.body;
+
+      const website = await prisma.website.findFirst({
+        where: { id, userId: req.user!.id }
+      });
+      if (!website) {
+        res.status(404).json({ error: 'Not Found', message: 'Website not found.' });
+        return;
+      }
+
+      const discovered = await discoverKeywords({
+        websiteId: id,
+        seedKeywords: Array.isArray(seedKeywords) ? seedKeywords : [],
+        topic: typeof topic === 'string' ? topic : undefined,
+        location: typeof location === 'string' ? location : undefined
+      });
+      
+      res.status(200).json({ keywords: discovered });
+    } catch (err) {
+      console.error('[Websites POST Keywords Discover Error]:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+);
+
+router.post(
   '/:id/keywords/research',
   requireAuth,
   requireSubscription,
@@ -1748,6 +1780,31 @@ async function checkWebsiteOwnershipLocal(req: Request, res: Response) {
   return website;
 }
 
+// Generate Content Plan
+router.post(
+  '/:id/content-calendar/generate',
+  requireAuth,
+  requireSubscription,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const website = await checkWebsiteOwnershipLocal(req, res);
+      if (!website) return;
+      
+      const { numberOfArticles } = req.body;
+      const { generateContentPlan } = require('../services/contentCalendar/generatePlan');
+      const plan = await generateContentPlan({ 
+        websiteId: website.id, 
+        numberOfArticles: numberOfArticles ? parseInt(numberOfArticles, 10) : 5 
+      });
+
+      res.status(201).json({ articles: plan });
+    } catch (err: any) {
+      console.error('[Websites POST Content Calendar Generate Error]:', err);
+      res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+  }
+);
+
 // List Articles
 router.get('/:id/articles', requireAuth, requireSubscription, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1756,7 +1813,7 @@ router.get('/:id/articles', requireAuth, requireSubscription, async (req: Reques
 
     const statusFilter = req.query.status as string | undefined;
     const whereClause: any = { websiteId: website.id };
-    if (statusFilter && ['IDEA', 'DRAFT', 'AI_REVIEW', 'USER_REVIEW', 'APPROVED', 'PUBLISHED'].includes(statusFilter)) {
+    if (statusFilter && ['PLANNED', 'SCHEDULED', 'GENERATING', 'IDEA', 'DRAFT', 'AI_REVIEW', 'USER_REVIEW', 'APPROVED', 'PUBLISHED', 'FAILED', 'CANCELLED'].includes(statusFilter)) {
       whereClause.status = statusFilter;
     }
 
@@ -1859,7 +1916,7 @@ router.put('/:id/articles/:articleId', requireAuth, requireSubscription, async (
       return;
     }
     
-    const { title, metaDescription, slug, content, topic, primaryKeyword, wordCount, tone, language, targetAudience, targetLocation, callToAction } = req.body;
+    const { title, metaDescription, slug, content, topic, primaryKeyword, wordCount, tone, language, targetAudience, targetLocation, callToAction, scheduledAt } = req.body;
 
     const cleanContent = content !== undefined ? sanitizeHtml(String(content).slice(0, 50000)) : article.content;
     const computedWordCount = wordCount !== undefined
@@ -1881,6 +1938,7 @@ router.put('/:id/articles/:articleId', requireAuth, requireSubscription, async (
         targetAudience: targetAudience !== undefined ? String(targetAudience).slice(0, 100) : article.targetAudience,
         targetLocation: targetLocation !== undefined ? String(targetLocation).slice(0, 100) : article.targetLocation,
         callToAction: callToAction !== undefined ? String(callToAction).slice(0, 200) : article.callToAction,
+        scheduledAt: scheduledAt !== undefined ? (scheduledAt ? new Date(scheduledAt) : null) : article.scheduledAt,
       }
     });
     res.json(updated);
@@ -2019,12 +2077,17 @@ router.post('/:id/articles/:articleId/transition', requireAuth, requireSubscript
 
     const { targetStatus } = req.body;
     const validTransitions: Record<string, string[]> = {
-      IDEA: ['DRAFT'],
-      DRAFT: ['AI_REVIEW', 'USER_REVIEW'],
+      PLANNED: ['SCHEDULED', 'GENERATING', 'CANCELLED'],
+      SCHEDULED: ['GENERATING', 'CANCELLED'],
+      GENERATING: ['DRAFT', 'FAILED'],
+      IDEA: ['DRAFT', 'CANCELLED'],
+      DRAFT: ['AI_REVIEW', 'USER_REVIEW', 'CANCELLED'],
       AI_REVIEW: ['USER_REVIEW'],
       USER_REVIEW: ['APPROVED', 'DRAFT'],
       APPROVED: ['PUBLISHED', 'USER_REVIEW'],
-      PUBLISHED: []
+      PUBLISHED: [],
+      FAILED: ['GENERATING', 'CANCELLED'],
+      CANCELLED: ['PLANNED']
     };
 
     if (!validTransitions[article.status as string] || !validTransitions[article.status as string].includes(targetStatus)) {

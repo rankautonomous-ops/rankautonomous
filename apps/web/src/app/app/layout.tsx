@@ -33,6 +33,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/app/keywords" className={styles.navLink}>
               Keywords
             </Link>
+            <Link href="/app/competitors" className={styles.navLink}>
+              Competitors
+            </Link>
             <Link href="/app/content" className={styles.navLink}>
               Content Engine
             </Link>

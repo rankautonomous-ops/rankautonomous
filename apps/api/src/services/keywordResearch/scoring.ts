@@ -1,32 +1,35 @@
 import { KeywordMetrics } from './types';
 import { SearchIntent } from '@prisma/client';
 
+export interface GscMetrics {
+  impressions: number;
+  clicks: number;
+  position: number;
+  ctr: number;
+}
+
 /**
- * Calculates the Opportunity Score deterministically.
- *
- * Formula:
- * - Requires searchVolume > 0 and keywordDifficulty to be available.
- * - Score = (log(searchVolume) * IntentMultiplier) / (keywordDifficulty + 1)
- *   normalized to a 0-100 scale.
- *
- * Intent Multipliers:
- * - TRANSACTIONAL: 1.5
- * - COMMERCIAL: 1.2
- * - INFORMATIONAL: 1.0
- * - NAVIGATIONAL: 0.8
- *
- * If data is unavailable, returns null.
+ * Calculates the RankAutonomous Opportunity Score deterministically based on available evidence.
+ * DO NOT claim this is a Google ranking score.
+ * 
+ * Logic:
+ * 1. Intent Multiplier: Transactional/Commercial intents are more valuable.
+ * 2. If 3rd-party metrics (volume/difficulty) exist:
+ *    Score += (log(volume) / (difficulty + 1)) * weight
+ * 3. If GSC metrics exist:
+ *    Score += High impressions + low CTR (gap) + near page 1 position (11-20) are high opportunity.
+ * 
+ * Returns a score 0-100.
  */
 export function calculateOpportunityScore(
-  metrics: KeywordMetrics,
-  intent: SearchIntent | null
+  metrics: KeywordMetrics | null,
+  intent: SearchIntent | null,
+  gsc: GscMetrics | null = null,
+  relevance: number = 5
 ): number | null {
-  if (metrics.searchVolume == null || metrics.keywordDifficulty == null) {
+  // If we have literally no data, return null
+  if (!metrics?.searchVolume && !gsc?.impressions) {
     return null;
-  }
-
-  if (metrics.searchVolume <= 0) {
-    return 0;
   }
 
   let multiplier = 1.0;
@@ -45,16 +48,37 @@ export function calculateOpportunityScore(
       break;
   }
 
-  const logVolume = Math.log10(metrics.searchVolume);
-  const difficultyFactor = metrics.keywordDifficulty + 1; // avoid division by zero
+  let baseScore = 0;
 
-  // Raw score is roughly between 0 and 15 for normal volumes (e.g. log10(100,000) = 5 * 1.5 / 10 = 0.75)
-  // We'll normalize it: max expected logVolume ~ 6, max multiplier ~ 1.5, min difficulty ~ 1.
-  // We'll use a simple scaling function that caps at 100.
-  const rawScore = (logVolume * multiplier) / difficultyFactor;
-  
-  // Magic constant 100 is for scaling. e.g. Volume 100k, KD 10, Trans = (5 * 1.5) / 11 = 0.68 * 147 = ~100
-  const normalizedScore = Math.min(100, Math.max(0, Math.round(rawScore * 100)));
+  // 1. Third-party metric score (if available)
+  if (metrics?.searchVolume && metrics?.searchVolume > 0 && metrics?.keywordDifficulty) {
+    const logVolume = Math.log10(metrics.searchVolume);
+    const difficultyFactor = metrics.keywordDifficulty + 1;
+    // max ~15
+    baseScore += (logVolume * 5) / (difficultyFactor / 10); 
+  }
+
+  // 2. GSC Data score (if available)
+  if (gsc && gsc.impressions > 0) {
+    const logImp = Math.log10(gsc.impressions);
+    
+    // CTR Gap: if CTR is low but impressions are high, that's an opportunity
+    const ctrGap = Math.max(0, 0.3 - gsc.ctr); // assuming 30% is a great CTR
+    
+    // Position modifier: position 11-20 (striking distance) is high opportunity.
+    let posMod = 1.0;
+    if (gsc.position > 10 && gsc.position <= 20) posMod = 1.5;
+    else if (gsc.position > 20 && gsc.position <= 50) posMod = 1.2;
+    else if (gsc.position > 1 && gsc.position <= 10) posMod = 0.8; // Already ranking well
+
+    // max ~20
+    baseScore += (logImp * 3) * (1 + ctrGap) * posMod;
+  }
+
+  // Combine and apply intent multiplier and relevance
+  const rawScore = baseScore * multiplier * (relevance / 5);
+
+  const normalizedScore = Math.min(100, Math.max(0, Math.round(rawScore * 2)));
 
   return normalizedScore;
 }
