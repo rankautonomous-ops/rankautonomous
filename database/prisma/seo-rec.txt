@@ -1,0 +1,78 @@
+
+enum RecommendationCategory {
+  TECHNICAL
+  CONTENT
+  KEYWORD
+  COMPETITOR
+  BACKLINK
+  PERFORMANCE
+  INTERNAL_LINKING
+  ON_PAGE
+}
+
+enum RecommendationPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RecommendationStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  DISMISSED
+  SNOOZED
+}
+
+enum AutomationType {
+  MANUAL
+  AI_ASSISTED
+  AUTOMATED
+}
+
+enum RecommendationActionType {
+  CREATE_ARTICLE
+  VERIFY_BACKLINK
+  START_OUTREACH
+  OPTIMIZE_CONTENT
+  FIX_TECHNICAL_ISSUE
+  INVESTIGATE_PERFORMANCE
+  NO_ACTION
+}
+
+model SeoRecommendation {
+  id               String                   @id @default(uuid())
+  websiteId        String
+  website          Website                  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  type             RecommendationActionType
+  category         RecommendationCategory
+  title            String
+  description      String                   @db.Text
+  priority         RecommendationPriority
+  impact           Int
+  effort           Int
+  confidence       Int
+  score            Int                      // Normalised score 0-100
+  status           RecommendationStatus     @default(OPEN)
+  sourceType       String                   // e.g., 'SEO_AUDIT', 'KEYWORD_OPPORTUNITY', 'COMPETITOR'
+  sourceId         String?
+  targetUrl        String?
+  targetKeyword    String?
+  suggestedAction  String?                  @db.Text
+  automationType   AutomationType           @default(MANUAL)
+  metadata         Json?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  completedAt      DateTime?
+  dismissedAt      DateTime?
+  lastEvaluatedAt  DateTime                 @default(now())
+  deduplicationKey String
+
+  @@index([websiteId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([deduplicationKey])
+  @@unique([websiteId, deduplicationKey])
+}
