@@ -352,6 +352,16 @@ router.delete('/backlink-opportunities/:id', async (req: Request, res: Response)
 // BACKLINK ENDPOINTS
 // ============================================================================
 
+function formatBacklink<T extends Record<string, any>>(backlink: T): T & { lastCheckedAt: any; firstDiscoveredAt: any } {
+  return {
+    ...backlink,
+    lastChecked: backlink.lastChecked,
+    lastCheckedAt: backlink.lastChecked,
+    firstDiscovered: backlink.firstDiscovered,
+    firstDiscoveredAt: backlink.firstDiscovered,
+  };
+}
+
 // List backlinks
 router.get('/backlinks', async (req: Request, res: Response) => {
   const { websiteId } = req.params;
@@ -380,7 +390,7 @@ router.get('/backlinks', async (req: Request, res: Response) => {
       prisma.backlink.count({ where })
     ]);
 
-    res.json({ data: backlinks, meta: { total, page: skip / take + 1, limit: take } });
+    res.json({ data: backlinks.map(formatBacklink), meta: { total, page: skip / take + 1, limit: take } });
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -396,7 +406,7 @@ router.get('/backlinks/:id', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Not Found', message: 'Backlink not found.' });
       return;
     }
-    res.json(backlink);
+    res.json(formatBacklink(backlink));
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -437,7 +447,7 @@ router.post('/backlinks', async (req: Request, res: Response) => {
       }
     });
 
-    res.status(201).json(backlink);
+    res.status(201).json(formatBacklink(backlink));
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -470,7 +480,7 @@ router.patch('/backlinks/:id', async (req: Request, res: Response) => {
       data
     });
 
-    res.json(updated);
+    res.json(formatBacklink(updated));
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -542,13 +552,15 @@ router.post('/backlinks/:id/verify', async (req: Request, res: Response) => {
 
     // Feature flag: When enabled, trigger Trigger.dev task; otherwise Render Worker handles it as before
     if (useTrigger) {
+      console.log(`[Trigger Dispatch] Starting dispatch for task: backlink-verification, backlinkId: ${backlinkId}, jobId: ${job.id}, executionProvider: trigger`);
       try {
-        await backlinkVerificationTask.trigger({
+        const handle = await backlinkVerificationTask.trigger({
           backlinkId,
           jobId: job.id,
         });
+        console.log(`[Trigger Dispatch] Successfully dispatched backlink-verification to Trigger.dev. runId: ${handle?.id || 'unknown'}, jobId: ${job.id}`);
       } catch (triggerError: any) {
-        console.error('[Trigger Dispatch Error] Failed to dispatch backlink verification to Trigger.dev:', triggerError);
+        console.error(`[Trigger Dispatch Error] Failed to dispatch backlink verification to Trigger.dev for backlinkId: ${backlinkId}, jobId: ${job.id}:`, triggerError?.message || 'Unknown error');
 
         // Prevent leaving an orphaned QUEUED job that would block future requests and never execute
         await prisma.backgroundJob.update({
@@ -567,6 +579,8 @@ router.post('/backlinks/:id/verify', async (req: Request, res: Response) => {
         });
         return;
       }
+    } else {
+      console.log(`[Queue Dispatch] Enqueued backlink verification for Render Worker. jobId: ${job.id}, backlinkId: ${backlinkId}`);
     }
 
     res.status(202).json({
@@ -623,6 +637,7 @@ router.get('/backlinks/:id/verification-job', async (req: Request, res: Response
         status: latestJob.status,
         error: latestJob.error ? 'Verification failed' : null,
       },
+      backlink: formatBacklink(existing),
     });
   } catch (error) {
     console.error('[Get Verification Job Error]', error);

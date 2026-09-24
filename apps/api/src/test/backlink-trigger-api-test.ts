@@ -503,6 +503,31 @@ async function runTests() {
     assert.strictEqual(nullJobRes.status, 200);
     assert.strictEqual(nullJobRes.body.job, null);
     pass('13. GET /verification-job: Returns { job: null } when no verification job has been queued');
+
+    // ----------------------------------------------------
+    // TEST 14: Verification synchronization fields (lastChecked & lastCheckedAt)
+    // ----------------------------------------------------
+    const listRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks`)
+      .set(authHeadersA);
+
+    assert.strictEqual(listRes.status, 200);
+    assert.ok(Array.isArray(listRes.body.data) && listRes.body.data.length > 0);
+    const listedItem = listRes.body.data.find((b: any) => b.id === pollTestBacklink.id);
+    assert.ok(listedItem, 'pollTestBacklink must be found in list');
+    assert.ok(listedItem.lastChecked, 'listedItem must have lastChecked');
+    assert.ok(listedItem.lastCheckedAt, 'listedItem must have lastCheckedAt');
+    assert.strictEqual(listedItem.lastChecked, listedItem.lastCheckedAt);
+
+    // Verification job status endpoint returns backlink details with lastChecked & lastCheckedAt
+    const pollStatusRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/${pollTestBacklink.id}/verification-job`)
+      .set(authHeadersA);
+    assert.strictEqual(pollStatusRes.status, 200);
+    assert.ok(pollStatusRes.body.backlink, 'pollStatusRes must include backlink details');
+    assert.ok(pollStatusRes.body.backlink.lastChecked, 'backlink must have lastChecked');
+    assert.ok(pollStatusRes.body.backlink.lastCheckedAt, 'backlink must have lastCheckedAt');
+    pass('14. Verification synchronization: Both lastChecked and lastCheckedAt mapped accurately');
   } catch (err: any) {
     fail('Unhandled test failure', err);
   } finally {

@@ -31,8 +31,10 @@ type Backlink = {
   status: 'ACTIVE' | 'LOST';
   verificationStatus: 'UNVERIFIED' | 'VERIFIED' | 'MISSING' | 'ERROR';
   lastErrorMessage: string | null;
-  firstDiscoveredAt: string;
-  lastCheckedAt: string | null;
+  firstDiscovered?: string;
+  firstDiscoveredAt?: string;
+  lastChecked?: string | null;
+  lastCheckedAt?: string | null;
 };
 
 const KANBAN_COLUMNS: OpportunityStatus[] = [
@@ -132,14 +134,16 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
 
       if (activeTab === 'opportunities') {
         const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities?limit=100`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error('Failed to fetch opportunities');
         const json = await res.json();
         setOpportunities(json.data || []);
       } else {
         const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks?limit=100`, {
-          headers: { Authorization: `Bearer ${session.access_token}` }
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store'
         });
         if (!res.ok) throw new Error('Failed to fetch backlinks');
         const json = await res.json();
@@ -301,6 +305,9 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
             delete next[backlinkId];
             return next;
           });
+          if (json.backlink) {
+            setBacklinks(prev => prev.map(b => b.id === backlinkId ? { ...b, ...json.backlink } : b));
+          }
           fetchData();
         }
       } catch (err) {
@@ -597,7 +604,15 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
                     </td>
                     <td>
                       <span style={{ fontSize: 13, color: '#5f5b58' }}>
-                        {bl.lastCheckedAt ? new Date(bl.lastCheckedAt).toLocaleString() : 'Never'}
+                        {(() => {
+                          if (bl.verificationStatus === 'UNVERIFIED') {
+                            return 'Never';
+                          }
+                          const timestamp = bl.lastChecked || bl.lastCheckedAt;
+                          if (!timestamp) return 'Never';
+                          const date = new Date(timestamp);
+                          return isNaN(date.getTime()) ? 'Never' : date.toLocaleString();
+                        })()}
                       </span>
                     </td>
                     <td>
