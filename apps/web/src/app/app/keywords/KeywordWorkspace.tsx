@@ -359,7 +359,7 @@ export default function KeywordWorkspace() {
             <div className={styles.tableContainer}>
               <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <button onClick={selectAllDiscovered} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                  <button onClick={selectAllDiscovered} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)' }}>
                     {(() => {
                       const selectable = discoveredKeywords.filter(kw => !keywords.some(k => (k.keyword || '').toLowerCase() === (kw.keyword || '').toLowerCase()));
                       const isAllSelected = selectedDiscovered.size === selectable.length && selectable.length > 0;
@@ -397,7 +397,7 @@ export default function KeywordWorkspace() {
                           {isExisting ? (
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Already added</span>
                           ) : selectedDiscovered.has(kw.keyword) ? (
-                            <CheckSquare size={16} color="var(--primary-color)" />
+                            <CheckSquare size={16} color="var(--text)" />
                           ) : (
                             <Square size={16} color="var(--text-muted)" />
                           )}
@@ -418,7 +418,7 @@ export default function KeywordWorkspace() {
                           {kw.opportunityScore != null ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <div style={{ flex: 1, height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px' }}>
-                                <div style={{ height: '100%', width: `${kw.opportunityScore}%`, backgroundColor: 'var(--primary-color)', borderRadius: '2px' }} />
+                                <div style={{ height: '100%', width: `${kw.opportunityScore}%`, backgroundColor: 'var(--accent-strong)', borderRadius: '2px' }} />
                               </div>
                               <span style={{ fontSize: '13px', fontWeight: 600 }}>{kw.opportunityScore}</span>
                             </div>

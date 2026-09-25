@@ -14,6 +14,7 @@ export default function CompetitorsDashboard() {
 
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   const [newUrl, setNewUrl] = useState('');
   const [adding, setAdding] = useState(false);
@@ -104,6 +105,7 @@ export default function CompetitorsDashboard() {
   const handleSuggest = async () => {
     if (!activeWebsite) return;
     setSuggesting(true);
+    setSuggestError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/suggest`, {
@@ -115,11 +117,11 @@ export default function CompetitorsDashboard() {
         setAiSuggestions(json.data || []);
       } else {
         const err = await res.json();
-        alert(err.message || 'Failed to get suggestions');
+        setSuggestError(err.message || 'Failed to get suggestions');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error');
+      setSuggestError('Network error');
     } finally {
       setSuggesting(false);
     }
@@ -190,13 +192,19 @@ export default function CompetitorsDashboard() {
         setExpandedId(id);
       } else {
         const err = await res.json();
-        alert(err.message || 'Failed to analyze competitor');
-        setCompetitors(comps => comps.map(c => c.id === id ? { ...c, status: 'ERROR' } : c));
+        setCompetitors(comps => comps.map(c => c.id === id ? { 
+          ...c, 
+          status: 'ERROR', 
+          analysisData: { ...(c.analysisData || {}), lastError: { message: err.message || 'Analysis failed', code: err.code, retryable: err.retryable } } 
+        } : c));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Network error');
-      setCompetitors(comps => comps.map(c => c.id === id ? { ...c, status: 'ERROR' } : c));
+      setCompetitors(comps => comps.map(c => c.id === id ? { 
+        ...c, 
+        status: 'ERROR', 
+        analysisData: { ...(c.analysisData || {}), lastError: { message: err.message || 'Network error', retryable: true } } 
+      } : c));
     } finally {
       setAnalyzingId(null);
     }
@@ -292,6 +300,11 @@ export default function CompetitorsDashboard() {
             <SparklesIcon /> {suggesting ? 'Finding...' : 'Find Competitors with AI'}
           </button>
           
+          {suggestError && (
+            <div style={{ marginTop: '16px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', color: '#f87171', fontSize: '14px' }}>
+              {suggestError}
+            </div>
+          )}
           {aiSuggestions.length > 0 && (
             <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {aiSuggestions.map((s, i) => (
@@ -336,14 +349,22 @@ export default function CompetitorsDashboard() {
                   className={styles.secondaryButton} 
                   disabled={analyzingId === comp.id || comp.status === 'ANALYZING'}
                 >
-                  <Zap size={14} /> {analyzingId === comp.id ? 'Analyzing...' : 'Analyze'}
+                  <Zap size={14} /> {analyzingId === comp.id || comp.status === 'ANALYZING' ? 'Analyzing...' : comp.status === 'ERROR' ? 'Retry Analysis' : 'Analyze'}
                 </button>
-                {comp.analysisData && (
+                {comp.analysisData && !comp.analysisData.lastError && (
                   <button 
                     onClick={() => setExpandedId(expandedId === comp.id ? null : comp.id)} 
                     className={styles.secondaryButton}
                   >
                     {expandedId === comp.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                )}
+                {comp.analysisData && comp.analysisData.lastError && comp.analysisData.positioning && (
+                  <button 
+                    onClick={() => setExpandedId(expandedId === comp.id ? null : comp.id)} 
+                    className={styles.secondaryButton}
+                  >
+                    {expandedId === comp.id ? 'Hide Details' : 'View Previous Details'}
                   </button>
                 )}
                 <button onClick={() => handleDelete(comp.id)} className={styles.secondaryButton} style={{ color: 'var(--error)' }}>
@@ -352,7 +373,13 @@ export default function CompetitorsDashboard() {
               </div>
             </div>
 
-            {expandedId === comp.id && comp.analysisData && (
+            {comp.status === 'ERROR' && comp.analysisData?.lastError && (
+              <div style={{ marginTop: '16px', padding: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: '#f87171' }}>
+                <strong>Analysis failed: </strong> {comp.analysisData.lastError.message}
+              </div>
+            )}
+
+            {expandedId === comp.id && comp.analysisData && comp.analysisData.positioning && (
               <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                 
                 <div style={{ marginBottom: '24px' }}>

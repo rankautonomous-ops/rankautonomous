@@ -124,7 +124,7 @@ router.post('/suggest', async (req: Request, res: Response) => {
     res.json({ data: suggestions });
   } catch (error: any) {
     console.error('[Competitor Suggest Error]', error);
-    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message, code: error.code, retryable: error.retryable });
   }
 });
 
@@ -136,12 +136,17 @@ router.post('/:competitorId/analyze', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Not Found' });
       return;
     }
+    
+    if (existing.status === 'ANALYZING') {
+      res.status(409).json({ error: 'Conflict', message: 'Competitor is already being analyzed' });
+      return;
+    }
 
     const result = await analyzeCompetitor(competitorId, websiteId);
     res.json({ data: result });
   } catch (error: any) {
     console.error('[Competitor Analyze Error]', error);
-    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message, code: error.code, retryable: error.retryable });
   }
 });
 

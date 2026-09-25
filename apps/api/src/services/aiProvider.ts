@@ -14,10 +14,15 @@ export interface IAiProvider {
 
 export class AiProviderError extends Error {
   public statusCode: number;
-  constructor(message: string, statusCode = 502) {
+  public code: string;
+  public retryable: boolean;
+
+  constructor(message: string, statusCode = 502, code = 'AI_ERROR', retryable = false) {
     super(message);
     this.name = 'AiProviderError';
     this.statusCode = statusCode;
+    this.code = code;
+    this.retryable = retryable;
   }
 }
 
@@ -86,7 +91,22 @@ export class OpenAiCompatibleProvider implements IAiProvider {
         } catch {
           // Response body was not JSON
         }
-        throw new AiProviderError(errMessage, response.status >= 500 ? 502 : 500);
+
+        let statusCode = response.status >= 500 ? 502 : 500;
+        let code = 'AI_ERROR';
+        let retryable = false;
+
+        if (response.status === 429) {
+          code = 'AI_RATE_LIMITED';
+          retryable = true;
+          errMessage = `The AI service is currently experiencing high demand or rate limits. Please try again later.`;
+        } else if (response.status >= 500) {
+          code = 'AI_TEMPORARILY_UNAVAILABLE';
+          retryable = true;
+          errMessage = `The AI service is temporarily unavailable. Please try again later.`;
+        }
+
+        throw new AiProviderError(errMessage, statusCode, code, retryable);
       }
 
       const data: any = await response.json();
@@ -210,7 +230,22 @@ export class GeminiProvider implements IAiProvider {
         } catch {
           // Response body was not JSON
         }
-        throw new AiProviderError(errMessage, response.status >= 500 ? 502 : 500);
+        
+        let statusCode = response.status >= 500 ? 502 : 500;
+        let code = 'AI_ERROR';
+        let retryable = false;
+
+        if (response.status === 429) {
+          code = 'AI_RATE_LIMITED';
+          retryable = true;
+          errMessage = `The AI service is currently experiencing high demand or rate limits. Please try again later.`;
+        } else if (response.status >= 500) {
+          code = 'AI_TEMPORARILY_UNAVAILABLE';
+          retryable = true;
+          errMessage = `The AI service is temporarily unavailable. Please try again later.`;
+        }
+
+        throw new AiProviderError(errMessage, statusCode, code, retryable);
       }
 
       const data: any = await response.json();

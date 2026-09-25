@@ -141,8 +141,24 @@ export async function suggestCompetitors(websiteId: string) {
       break;
     } catch (err: any) {
       if (attempts >= 2) {
-        if (err.name === 'AiProviderError') throw err;
-        throw new Error('AI returned invalid JSON');
+        let code = 'UNKNOWN_ERROR';
+        let message = err.message || 'An unexpected error occurred';
+        let retryable = false;
+
+        if (err.name === 'AiProviderError') {
+          code = err.code || 'AI_ERROR';
+          message = err.message;
+          retryable = err.retryable || false;
+        } else if (err.message === 'AI returned invalid JSON') {
+          code = 'AI_INVALID_RESPONSE';
+          message = 'The AI service returned an invalid response. Please retry.';
+          retryable = true;
+        }
+
+        const safeError = new Error(message);
+        (safeError as any).code = code;
+        (safeError as any).retryable = retryable;
+        throw safeError;
       }
     }
   }
@@ -228,8 +244,24 @@ export async function analyzeCompetitor(competitorId: string, websiteId: string)
         break;
       } catch (err: any) {
         if (attempts >= 2) {
-          if (err.name === 'AiProviderError') throw err;
-          throw new Error('AI returned invalid JSON');
+          let code = 'UNKNOWN_ERROR';
+          let message = err.message || 'An unexpected error occurred';
+          let retryable = false;
+
+          if (err.name === 'AiProviderError') {
+            code = err.code || 'AI_ERROR';
+            message = err.message;
+            retryable = err.retryable || false;
+          } else if (err.message === 'AI returned invalid JSON') {
+            code = 'AI_INVALID_RESPONSE';
+            message = 'The AI service returned an invalid response. Please retry.';
+            retryable = true;
+          }
+
+          const safeError = new Error(message);
+          (safeError as any).code = code;
+          (safeError as any).retryable = retryable;
+          throw safeError;
         }
       }
     }
@@ -266,14 +298,43 @@ export async function analyzeCompetitor(competitorId: string, websiteId: string)
 
     return structuredAnalysis;
   } catch (error: any) {
+    const existing = await prisma.competitor.findUnique({ where: { id: competitorId, websiteId } });
+    const existingData = existing?.analysisData ? (existing.analysisData as any) : {};
+    
+    let code = 'UNKNOWN_ERROR';
+    let message = error.message || 'An unexpected error occurred';
+    let retryable = false;
+
+    if (error.name === 'AiProviderError') {
+      code = error.code || 'AI_ERROR';
+      message = error.message;
+      retryable = error.retryable || false;
+    } else if (error.message === 'AI returned invalid JSON') {
+      code = 'AI_INVALID_RESPONSE';
+      message = 'The AI service returned an invalid response. Please retry.';
+      retryable = true;
+    }
+
     await prisma.competitor.update({
       where: { id: competitorId, websiteId },
       data: {
         status: CompetitorStatus.ERROR,
-        analysisData: { error: error.message }
+        analysisData: {
+          ...existingData,
+          lastError: {
+            code,
+            message,
+            retryable,
+            timestamp: new Date().toISOString()
+          }
+        }
       }
     });
-    throw error;
+
+    const safeError = new Error(message);
+    (safeError as any).code = code;
+    (safeError as any).retryable = retryable;
+    throw safeError;
   }
 }
 
