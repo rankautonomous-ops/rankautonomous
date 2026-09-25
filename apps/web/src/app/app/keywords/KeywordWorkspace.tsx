@@ -51,9 +51,13 @@ export default function KeywordWorkspace() {
       if (!siteRes.ok) throw new Error('No active website');
       
       const siteData = await siteRes.json();
-      setActiveWebsite(siteData.website || siteData);
-      
       const targetSite = siteData.website || siteData;
+      setActiveWebsite(targetSite);
+      
+      if (targetSite?.primaryKeywords && Array.isArray(targetSite.primaryKeywords)) {
+        setDiscoverSeed(targetSite.primaryKeywords.join(', '));
+      }
+
       if (targetSite?.id) {
         fetchKeywords(targetSite.id, session.access_token);
       }
@@ -397,13 +401,17 @@ export default function KeywordWorkspace() {
                         </span>
                       </td>
                       <td>{kw.gscImpressions ? kw.gscImpressions.toLocaleString() : '-'}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ flex: 1, height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px' }}>
-                            <div style={{ height: '100%', width: `${kw.opportunityScore || 0}%`, backgroundColor: 'var(--primary-color)', borderRadius: '2px' }} />
+                      <td style={{ minWidth: '120px' }}>
+                        {kw.opportunityScore != null ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ flex: 1, height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px' }}>
+                              <div style={{ height: '100%', width: `${kw.opportunityScore}%`, backgroundColor: 'var(--primary-color)', borderRadius: '2px' }} />
+                            </div>
+                            <span style={{ fontSize: '13px', fontWeight: 600 }}>{kw.opportunityScore}</span>
                           </div>
-                          <span style={{ fontSize: '13px', fontWeight: 600 }}>{kw.opportunityScore || 0}</span>
-                        </div>
+                        ) : (
+                          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Not available</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -569,7 +577,7 @@ export default function KeywordWorkspace() {
                           <span style={{ fontSize: '13px', fontWeight: 600 }}>{kw.opportunityScore}</span>
                         </div>
                       ) : (
-                        <span className={styles.unavailableText}>-</span>
+                        <span className={styles.unavailableText}>Not available</span>
                       )}
                     </td>
                     <td>
