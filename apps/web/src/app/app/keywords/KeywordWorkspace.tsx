@@ -215,10 +215,11 @@ export default function KeywordWorkspace() {
   };
 
   const selectAllDiscovered = () => {
-    if (selectedDiscovered.size === discoveredKeywords.length) {
+    const selectable = discoveredKeywords.filter(kw => !keywords.some(k => (k.keyword || '').toLowerCase() === (kw.keyword || '').toLowerCase()));
+    if (selectedDiscovered.size === selectable.length && selectable.length > 0) {
       setSelectedDiscovered(new Set());
     } else {
-      setSelectedDiscovered(new Set(discoveredKeywords.map(k => k.keyword)));
+      setSelectedDiscovered(new Set(selectable.map(k => k.keyword)));
     }
   };
 
@@ -359,7 +360,11 @@ export default function KeywordWorkspace() {
               <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <button onClick={selectAllDiscovered} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}>
-                    {selectedDiscovered.size === discoveredKeywords.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                    {(() => {
+                      const selectable = discoveredKeywords.filter(kw => !keywords.some(k => (k.keyword || '').toLowerCase() === (kw.keyword || '').toLowerCase()));
+                      const isAllSelected = selectedDiscovered.size === selectable.length && selectable.length > 0;
+                      return isAllSelected ? <CheckSquare size={18} /> : <Square size={18} />;
+                    })()}
                   </button>
                   <span style={{ fontSize: '14px', fontWeight: 500 }}>{selectedDiscovered.size} selected</span>
                 </div>
@@ -384,37 +389,46 @@ export default function KeywordWorkspace() {
                   </tr>
                 </thead>
                 <tbody>
-                  {discoveredKeywords.map(kw => (
-                    <tr key={kw.keyword} onClick={() => toggleSelectDiscovered(kw.keyword)} style={{ cursor: 'pointer' }}>
-                      <td>
-                        {selectedDiscovered.has(kw.keyword) ? <CheckSquare size={16} color="var(--primary-color)" /> : <Square size={16} color="var(--text-muted)" />}
-                      </td>
-                      <td><span className={styles.keywordText}>{kw.keyword}</span></td>
-                      <td>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                          {kw.intent ? kw.intent.toLowerCase() : '-'}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
-                          {kw.source}
-                        </span>
-                      </td>
-                      <td>{kw.gscImpressions ? kw.gscImpressions.toLocaleString() : '-'}</td>
-                      <td style={{ minWidth: '120px' }}>
-                        {kw.opportunityScore != null ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ flex: 1, height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px' }}>
-                              <div style={{ height: '100%', width: `${kw.opportunityScore}%`, backgroundColor: 'var(--primary-color)', borderRadius: '2px' }} />
+                  {discoveredKeywords.map((kw, idx) => {
+                    const isExisting = keywords.some(k => (k.keyword || '').toLowerCase() === (kw.keyword || '').toLowerCase());
+                    return (
+                      <tr key={`${kw.keyword}-${idx}`} onClick={() => !isExisting && toggleSelectDiscovered(kw.keyword)} style={{ cursor: isExisting ? 'default' : 'pointer', opacity: isExisting ? 0.6 : 1 }}>
+                        <td>
+                          {isExisting ? (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Already added</span>
+                          ) : selectedDiscovered.has(kw.keyword) ? (
+                            <CheckSquare size={16} color="var(--primary-color)" />
+                          ) : (
+                            <Square size={16} color="var(--text-muted)" />
+                          )}
+                        </td>
+                        <td><span className={styles.keywordText}>{kw.keyword}</span></td>
+                        <td>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {kw.intent ? kw.intent.toLowerCase() : '-'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+                            {kw.source}
+                          </span>
+                        </td>
+                        <td>{kw.gscImpressions ? kw.gscImpressions.toLocaleString() : '-'}</td>
+                        <td style={{ minWidth: '120px' }}>
+                          {kw.opportunityScore != null ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ flex: 1, height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px' }}>
+                                <div style={{ height: '100%', width: `${kw.opportunityScore}%`, backgroundColor: 'var(--primary-color)', borderRadius: '2px' }} />
+                              </div>
+                              <span style={{ fontSize: '13px', fontWeight: 600 }}>{kw.opportunityScore}</span>
                             </div>
-                            <span style={{ fontSize: '13px', fontWeight: 600 }}>{kw.opportunityScore}</span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Not available</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                          ) : (
+                            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Not available</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

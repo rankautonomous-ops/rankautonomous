@@ -24,6 +24,18 @@ export function normalizeCompetitorUrl(raw: string): string | null {
   }
 }
 
+export function parseAiJson(raw: string): any {
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/i, '');
+    cleaned = cleaned.replace(/\s*```$/i, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/i, '');
+    cleaned = cleaned.replace(/\s*```$/i, '');
+  }
+  return JSON.parse(cleaned);
+}
+
 export function extractDomain(normalized: string): string | null {
   try {
     const u = new URL(normalized);
@@ -113,19 +125,26 @@ export async function suggestCompetitors(websiteId: string) {
   const { systemPrompt, userPrompt } = buildCompetitorSuggestPrompt(context);
   const ai = getAiProvider();
   
-  const resultJsonStr = await ai.generateCompletion({
-    systemPrompt,
-    userPrompt,
-    responseFormat: 'json_object',
-    temperature: 0.7,
-    maxTokens: 1000
-  });
-
   let parsed: any;
-  try {
-    parsed = JSON.parse(resultJsonStr);
-  } catch {
-    throw new Error('AI returned invalid JSON');
+  let attempts = 0;
+  while (attempts < 2) {
+    attempts++;
+    try {
+      const resultJsonStr = await ai.generateCompletion({
+        systemPrompt,
+        userPrompt,
+        responseFormat: 'json_object',
+        temperature: 0.7,
+        maxTokens: 1000
+      });
+      parsed = parseAiJson(resultJsonStr);
+      break;
+    } catch (err: any) {
+      if (attempts >= 2) {
+        if (err.name === 'AiProviderError') throw err;
+        throw new Error('AI returned invalid JSON');
+      }
+    }
   }
 
   if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
@@ -193,19 +212,26 @@ export async function analyzeCompetitor(competitorId: string, websiteId: string)
     const { systemPrompt, userPrompt } = buildCompetitorAnalysisPrompt(context);
     const ai = getAiProvider();
     
-    const resultJsonStr = await ai.generateCompletion({
-      systemPrompt,
-      userPrompt,
-      responseFormat: 'json_object',
-      temperature: 0.5,
-      maxTokens: 2500
-    });
-
     let parsed: any;
-    try {
-      parsed = JSON.parse(resultJsonStr);
-    } catch {
-      throw new Error('AI returned invalid JSON');
+    let attempts = 0;
+    while (attempts < 2) {
+      attempts++;
+      try {
+        const resultJsonStr = await ai.generateCompletion({
+          systemPrompt,
+          userPrompt,
+          responseFormat: 'json_object',
+          temperature: 0.5,
+          maxTokens: 2500
+        });
+        parsed = parseAiJson(resultJsonStr);
+        break;
+      } catch (err: any) {
+        if (attempts >= 2) {
+          if (err.name === 'AiProviderError') throw err;
+          throw new Error('AI returned invalid JSON');
+        }
+      }
     }
 
     // Validate parsed output structure
