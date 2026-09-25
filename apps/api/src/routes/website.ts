@@ -668,6 +668,30 @@ router.post(
         },
       });
 
+      // 4. Start initial crawl asynchronously
+      try {
+        const activeJob = await prisma.crawlJob.findFirst({
+          where: { websiteId: website.id, status: { in: ['PENDING', 'CRAWLING'] } }
+        });
+
+        if (!activeJob) {
+          const crawlJob = await prisma.crawlJob.create({
+            data: {
+              websiteId: website.id,
+              status: 'PENDING'
+            }
+          });
+
+          // Start crawl async
+          startCrawl(website.id, crawlJob.id, website.url).catch(e => 
+            console.error('[Websites POST Initial Crawl Async Error]:', e)
+          );
+        }
+      } catch (crawlError: any) {
+        // Safe-fail: Do not crash the website creation if crawl dispatch fails
+        console.error('[Websites POST Initial Crawl Dispatch Error]:', crawlError);
+      }
+
       res.status(201).json({
         message: 'Website connected successfully.',
         website,

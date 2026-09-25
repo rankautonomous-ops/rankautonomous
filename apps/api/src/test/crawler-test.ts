@@ -283,7 +283,7 @@ async function runTests() {
     assert(jobCompleted && job?.status === 'COMPLETED', 'crawl status transitions correctly (COMPLETED)');
     assert(job?.progress > 0, 'progress is updated correctly');
 
-    const pages = await prisma.pageResult.findMany({ where: { crawlJobId: (await prisma.crawlJob.findFirst({where: {websiteId}}))?.id } });
+    const pages = await prisma.pageResult.findMany({ where: { crawlJobId: (await prisma.crawlJob.findFirst({where: {websiteId}, orderBy: {createdAt: 'desc'}}))?.id } });
     
     const hasHome = pages.find(p => p.url === 'https://mock.rankautonomous.com/');
     const hasAbout = pages.find(p => p.url === 'https://mock.rankautonomous.com/about');

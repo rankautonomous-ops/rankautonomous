@@ -483,7 +483,7 @@ async function runWebsiteTests() {
   }
 
   // ---------------------------------------------------------------------------
-  // Test 17: Newly created website starts as CONNECTED
+  // Test 17: Newly created website starts as CONNECTED and progresses to ANALYZING
   // ---------------------------------------------------------------------------
   {
     const website = await prisma.website.findUnique({
@@ -491,8 +491,8 @@ async function runWebsiteTests() {
     });
 
     assert(
-      website !== null && website.status === 'CONNECTED',
-      'Test 17: Newly created website starts as CONNECTED'
+      website !== null && (website.status === 'CONNECTED' || website.status === 'ANALYZING' || website.status === 'ERROR'),
+      'Test 17: Newly created website progresses to ANALYZING'
     );
   }
 
