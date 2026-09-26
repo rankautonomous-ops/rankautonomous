@@ -72,7 +72,17 @@ app.use('/api/integrations', integrationsRouter);
 app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'ok', service: 'api', database: 'connected' });
+    const sbUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'missing';
+    const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'missing';
+    res.json({ 
+      status: 'ok', 
+      service: 'api', 
+      database: 'connected',
+      diagnostics: {
+        supabaseHost: sbUrl.replace('https://', '').split('.')[0],
+        keyLength: sbKey.length
+      }
+    });
   } catch (error) {
     res.status(503).json({ status: 'error', service: 'api', database: 'disconnected' });
   }

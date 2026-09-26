@@ -16,6 +16,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     const authHeader = req.headers.authorization;
+    console.log('[Auth Diagnostics] Header exists:', !!authHeader, 'startsWith Bearer:', authHeader?.startsWith('Bearer '));
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
         error: 'Unauthorized',
@@ -25,6 +26,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     }
 
     const token = authHeader.split(' ')[1];
+    console.log('[Auth Diagnostics] Token length:', token?.length);
     if (!token) {
       res.status(401).json({
         error: 'Unauthorized',
@@ -37,6 +39,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !authData?.user) {
+      console.error('[Auth Diagnostics] getUser failed. authError:', authError?.message, 'code:', authError?.code, 'status:', authError?.status);
       res.status(401).json({
         error: 'Unauthorized',
         message: 'Invalid, expired, or revoked authentication token.',

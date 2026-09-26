@@ -23,6 +23,8 @@ if (supabaseUrl === 'https://placeholder.supabase.co') {
   console.warn('[Supabase API Client] Using placeholder SUPABASE_URL. Set NEXT_PUBLIC_SUPABASE_URL in .env.');
 }
 
+console.log('[Supabase API Client Init] URL:', supabaseUrl, 'Key length:', supabaseKey?.length);
+
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: false,
