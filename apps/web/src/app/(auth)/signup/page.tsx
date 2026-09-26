@@ -37,6 +37,8 @@ export default function SignupPage() {
 
     try {
       const supabase = createClient();
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -44,6 +46,7 @@ export default function SignupPage() {
           data: {
             name: name.trim(),
           },
+          emailRedirectTo: `${baseUrl}/app`,
         },
       });
 
