@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, RefreshCw, Trash2, Layers, Sparkles, CheckSquare, Square } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import styles from './keywords.module.css';
+import { apiFetch } from '../../../lib/api';
 
 export default function KeywordWorkspace() {
   const [activeWebsite, setActiveWebsite] = useState<any>(null);
@@ -45,7 +46,7 @@ export default function KeywordWorkspace() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!siteRes.ok) throw new Error('No active website');
@@ -70,7 +71,7 @@ export default function KeywordWorkspace() {
 
   const fetchKeywords = async (websiteId: string, token: string) => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/keywords`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/keywords`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -91,7 +92,7 @@ export default function KeywordWorkspace() {
     setAddingKeyword(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ export default function KeywordWorkspace() {
     if (!activeWebsite) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/${keywordId}`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/${keywordId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -146,7 +147,7 @@ export default function KeywordWorkspace() {
       const { data: { session } } = await supabase.auth.getSession();
       const keywordIds = keywords.map(k => k.id);
       
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/research`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/research`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,7 +180,7 @@ export default function KeywordWorkspace() {
       const { data: { session } } = await supabase.auth.getSession();
       const seeds = discoverSeed.split(',').map(s => s.trim()).filter(Boolean);
       
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/discover`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/discover`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +239,7 @@ export default function KeywordWorkspace() {
           source: k.source
         }));
 
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

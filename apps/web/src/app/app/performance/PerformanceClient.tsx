@@ -4,6 +4,7 @@ import { useState } from 'react';
 import styles from '../app.module.css';
 import { RefreshCw, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '../../../lib/api';
 
 export default function PerformanceClient({ websiteId, initialData, token }: { websiteId: string, initialData: any, token: string }) {
   const [data, setData] = useState(initialData);
@@ -17,7 +18,7 @@ export default function PerformanceClient({ websiteId, initialData, token }: { w
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/integrations/google/sync`, {
+      const res = await apiFetch(`${apiUrl}/api/integrations/google/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,7 +31,7 @@ export default function PerformanceClient({ websiteId, initialData, token }: { w
       if (res.ok && result.success) {
         setSyncStatus({ type: 'success', message: 'Sync completed successfully.' });
         // Refresh performance data
-        const perfRes = await fetch(`${apiUrl}/api/websites/${websiteId}/performance`, {
+        const perfRes = await apiFetch(`${apiUrl}/api/websites/${websiteId}/performance`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (perfRes.ok) {

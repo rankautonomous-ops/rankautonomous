@@ -8,6 +8,7 @@ import styles from './integrations.module.css';
 import { AlertCircle, BarChart3, CheckCircle2, Globe, Search, Trash2, Settings, Loader2 } from 'lucide-react';
 import PropertySelectionModal from './PropertySelectionModal';
 import CmsConnections from './CmsConnections';
+import { apiFetch } from '../../../lib/api';
 
 function IntegrationsContent() {
   const [activeWebsite, setActiveWebsite] = useState<any>(null);
@@ -33,7 +34,7 @@ function IntegrationsContent() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
         
-        const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+        const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         
@@ -90,7 +91,7 @@ function IntegrationsContent() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`${apiUrl}/api/integrations?websiteId=${activeWebsite.id}`, {
+      const res = await apiFetch(`${apiUrl}/api/integrations?websiteId=${activeWebsite.id}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (res.ok) {
@@ -124,7 +125,7 @@ function IntegrationsContent() {
         ? `${apiUrl}/api/integrations/google/search-console/connect?websiteId=${activeWebsite.id}`
         : `${apiUrl}/api/integrations/google/analytics/connect?websiteId=${activeWebsite.id}`;
         
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const data = await res.json();
@@ -150,7 +151,7 @@ function IntegrationsContent() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`${apiUrl}/api/integrations/${integrationId}`, {
+      const res = await apiFetch(`${apiUrl}/api/integrations/${integrationId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

@@ -18,6 +18,7 @@ import SeoAuditResults from './SeoAuditResults';
 import SeoStrategyResults from './SeoStrategyResults';
 import AttentionAuditAction from './AttentionAuditAction';
 import styles from './app.module.css';
+import { apiFetch } from '../../lib/api';
 
 interface ApiMeResponse {
   user?: {
@@ -86,7 +87,7 @@ export default async function AppDashboardPage() {
       const apiUrl = getApiUrl();
 
       // 1. Fetch user sync info
-      const meRes = await fetch(`${apiUrl}/api/me`, {
+      const meRes = await apiFetch(`${apiUrl}/api/me`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -102,7 +103,7 @@ export default async function AppDashboardPage() {
       }
 
       // 2. Fetch active website
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -114,7 +115,7 @@ export default async function AppDashboardPage() {
         activeWebsite = siteData.website || null;
         
         if (activeWebsite) {
-          const perfRes = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/performance`, {
+          const perfRes = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/performance`, {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
             },

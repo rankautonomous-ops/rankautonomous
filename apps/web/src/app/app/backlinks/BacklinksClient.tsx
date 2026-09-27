@@ -8,6 +8,7 @@ import { createClient } from '../../../lib/supabase/client';
 import { getApiUrl } from '../../../lib/api';
 import CampaignsView from './CampaignsView';
 import DiscoveryModal from './DiscoveryModal';
+import { apiFetch } from '../../../lib/api';
 
 type OpportunityStatus = 'DISCOVERED' | 'QUALIFIED' | 'READY' | 'CONTACTED' | 'REPLIED' | 'ACCEPTED' | 'LINK_ACQUIRED' | 'REJECTED';
 
@@ -107,7 +108,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
         return;
       }
 
-      const res = await fetch(`${apiUrl}/api/websites/active`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (res.ok) {
@@ -138,7 +139,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       setAccessToken(session?.access_token || '');
 
       if (activeTab === 'opportunities') {
-        const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities?limit=100`, {
+        const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities?limit=100`, {
           headers: { Authorization: `Bearer ${session?.access_token}` },
           cache: 'no-store'
         });
@@ -146,7 +147,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
         const json = await res.json();
         setOpportunities(json.data || []);
       } else {
-        const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks?limit=100`, {
+        const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks?limit=100`, {
           headers: { Authorization: `Bearer ${session?.access_token}` },
           cache: 'no-store'
         });
@@ -177,7 +178,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       if (oppForm.relevance) payload.relevance = parseInt(oppForm.relevance, 10);
       if (oppForm.domainAuthority) payload.domainAuthority = parseInt(oppForm.domainAuthority, 10);
 
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -216,7 +217,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       };
       if (blForm.anchorText) payload.anchorText = blForm.anchorText;
 
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -245,7 +246,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
     setVerifyingBacklinks(prev => ({ ...prev, [backlink.id]: { status: 'Queueing...' } }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${backlink.id}/verify`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${backlink.id}/verify`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -286,7 +287,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${backlinkId}/verification-job`, {
+        const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${backlinkId}/verification-job`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         if (!res.ok) return;
@@ -339,7 +340,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
         payload.sourceUrl = sourceUrl;
       }
 
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${id}/status`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${id}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -365,7 +366,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
     if (!confirm('Are you sure you want to delete this opportunity?')) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${id}`, {
+      await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -377,7 +378,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
     if (!confirm('Are you sure you want to delete this backlink?')) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${id}`, {
+      await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -560,12 +561,12 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
                             style={{marginTop: 4, width: '100%', fontSize: 11, padding: '4px'}}
                             onClick={async () => {
                               if(opp.status === 'DISCOVERED') {
-                                await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${opp.id}/qualify`, {
+                                await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${opp.id}/qualify`, {
                                   method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }
                                 });
                                 fetchData();
                               } else {
-                                await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/campaigns`, {
+                                await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/campaigns`, {
                                   method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ opportunityId: opp.id })
                                 });
@@ -802,7 +803,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
           onDiscover={async (candidates) => {
             // Save each as an opportunity
             for (const c of candidates) {
-              await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities`, {
+              await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ domain: c.domain, url: c.url, type: c.type, relevance: c.relevance })

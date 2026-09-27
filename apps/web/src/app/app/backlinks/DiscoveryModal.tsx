@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import styles from './backlinks.module.css';
+import { apiFetch } from '../../../lib/api';
 
 interface DiscoveryModalProps {
   websiteId: string;
@@ -23,7 +24,7 @@ export default function DiscoveryModal({ websiteId, accessToken, apiUrl, onClose
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/backlinks/discover`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/discover`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

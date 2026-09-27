@@ -48,6 +48,11 @@ function LoginForm() {
       <h1 className={styles.title}>Welcome back</h1>
       <p className={styles.subtitle}>Sign in to your RankAutonomous dashboard</p>
 
+      {searchParams.get('expired') === 'true' && !error && (
+        <div className={styles.errorBanner}>
+          Your session has expired. Please sign in again.
+        </div>
+      )}
       {error && <div className={styles.errorBanner}>{error}</div>}
 
       <form onSubmit={handleLogin} className={styles.form}>

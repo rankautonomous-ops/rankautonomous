@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import styles from '../app.module.css';
+import { apiFetch } from '../../../lib/api';
 
 // =============================================================================
 // PRD CONSTANTS
@@ -366,7 +367,7 @@ export default function OnboardingWizardPage() {
         existingKeywords: primaryKeywords,
       };
 
-      const res = await fetch(`${apiUrl}/api/websites/keyword-suggestions`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/keyword-suggestions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -455,7 +456,7 @@ export default function OnboardingWizardPage() {
         platform,
       };
 
-      const res = await fetch(`${apiUrl}/api/websites`, {
+      const res = await apiFetch(`${apiUrl}/api/websites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

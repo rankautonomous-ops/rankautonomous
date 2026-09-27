@@ -6,6 +6,7 @@ import { createClient } from '../../../lib/supabase/client';
 import { Plus, FileText, Type, Tag, Calendar, ArrowRight, Sparkles } from 'lucide-react';
 import styles from '../app.module.css';
 import contentStyles from './content.module.css';
+import { apiFetch } from '../../../lib/api';
 
 export default function ContentDashboard() {
   const [activeWebsite, setActiveWebsite] = useState<any>(null);
@@ -39,7 +40,7 @@ export default function ContentDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!siteRes.ok) throw new Error('No active website');
@@ -60,7 +61,7 @@ export default function ContentDashboard() {
 
   const fetchArticles = async (websiteId: string, token: string) => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/articles`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/articles`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -81,7 +82,7 @@ export default function ContentDashboard() {
     setIsCreating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +222,7 @@ export default function ContentDashboard() {
               setIsCreating(true);
               try {
                 const { data: { session } } = await supabase.auth.getSession();
-                const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/content-calendar/generate`, {
+                const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/content-calendar/generate`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
                   body: JSON.stringify({ numberOfArticles: 5 })

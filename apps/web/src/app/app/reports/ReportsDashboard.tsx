@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getApiUrl } from '../../../lib/api';
+import { apiFetch } from '../../../lib/api';
 
 export default function ReportsDashboard({ initialWebsite }: { initialWebsite: any }) {
   const website = initialWebsite;
@@ -17,7 +18,7 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
     try {
       setLoading(true);
       const apiUrl = getApiUrl();
-      const res = await fetch(`${apiUrl}/api/websites/${website.id}/reports`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/reports`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('supabase_token')}`,
         }
@@ -50,7 +51,7 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
       const month = d.getUTCMonth() + 1;
 
       const apiUrl = getApiUrl();
-      const res = await fetch(`${apiUrl}/api/websites/${website.id}/reports/generate`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/reports/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

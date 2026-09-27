@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FileText, Play, AlertCircle, CheckCircle2, Activity, Link as LinkIcon, FileOutput, Sparkles } from 'lucide-react';
 import styles from './app.module.css';
+import { apiFetch } from '../../lib/api';
 
 interface SeoStrategyResultsProps {
   websiteId: string;
@@ -19,7 +20,7 @@ export default function SeoStrategyResults({ websiteId, token }: SeoStrategyResu
 
   const fetchStrategy = async () => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/strategy`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/strategy`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -40,7 +41,7 @@ export default function SeoStrategyResults({ websiteId, token }: SeoStrategyResu
 
   const fetchAuditStatus = async () => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -68,7 +69,7 @@ export default function SeoStrategyResults({ websiteId, token }: SeoStrategyResu
     try {
       setError(null);
       setStatus('PENDING');
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/strategy`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/strategy`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });

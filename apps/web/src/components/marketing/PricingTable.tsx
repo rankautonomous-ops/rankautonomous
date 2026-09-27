@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Loader2, } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import styles from './pricing.module.css';
+import { apiFetch } from '../../lib/api';
 
 interface PricingTableProps {
   userSession?: boolean;
@@ -34,7 +35,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
 
       // User is authenticated, initiate Stripe Checkout Session
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/billing/create-checkout-session`, {
+      const response = await apiFetch(`${apiUrl}/api/billing/create-checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

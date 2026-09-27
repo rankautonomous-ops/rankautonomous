@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import ReportsDashboard from './ReportsDashboard';
 import { createClient } from '../../../lib/supabase/server';
 import { getApiUrl } from '../../../lib/api';
+import { apiFetch } from '../../../lib/api';
 
 export default async function ReportsPage() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export default async function ReportsPage() {
   if (session?.access_token) {
     try {
       const apiUrl = getApiUrl();
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: 'no-store',
       });

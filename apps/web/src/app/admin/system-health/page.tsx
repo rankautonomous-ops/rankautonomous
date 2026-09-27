@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import styles from '../admin.module.css';
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { apiFetch } from '../../../lib/api';
 
 interface HealthData {
   [key: string]: { status: string; details: string };
@@ -20,7 +21,7 @@ export default function SystemHealthPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/system-health`, {
+      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/system-health`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       if (!res.ok) throw new Error('Failed to load health');

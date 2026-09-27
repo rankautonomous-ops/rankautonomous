@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Loader2, AlertTriangle, Play } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import styles from '../../app.module.css';
+import { apiFetch } from '../../../../lib/api';
 
 interface SubscriptionManagerProps {
   subscriptionId: string;
@@ -36,7 +37,7 @@ export function SubscriptionManager({ subscriptionId, cancelAtPeriodEnd, onUpdat
       if (!session) return;
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/billing/subscription/cancel`, {
+      const res = await apiFetch(`${apiUrl}/api/billing/subscription/cancel`, {
         method: 'POST',
         headers: { 
           Authorization: `Bearer ${session.access_token}`,

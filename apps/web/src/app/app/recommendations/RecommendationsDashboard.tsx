@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getApiUrl } from '../../../lib/api';
+import { apiFetch } from '../../../lib/api';
 
 export default function RecommendationsDashboard({ initialWebsite }: { initialWebsite: any }) {
   const website = initialWebsite;
@@ -15,7 +16,7 @@ export default function RecommendationsDashboard({ initialWebsite }: { initialWe
     try {
       setLoading(true);
       const apiUrl = getApiUrl();
-      const res = await fetch(`${apiUrl}/api/websites/${website.id}/recommendations`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/recommendations`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('supabase_token')}`,
         },
@@ -41,7 +42,7 @@ export default function RecommendationsDashboard({ initialWebsite }: { initialWe
       setGenerating(true);
       setError('');
       const apiUrl = getApiUrl();
-      const res = await fetch(`${apiUrl}/api/websites/${website.id}/recommendations/generate`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/recommendations/generate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('supabase_token')}`,
@@ -60,7 +61,7 @@ export default function RecommendationsDashboard({ initialWebsite }: { initialWe
     if (!website) return;
     try {
       const apiUrl = getApiUrl();
-      const res = await fetch(`${apiUrl}/api/websites/${website.id}/recommendations/${id}/execute`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/recommendations/${id}/execute`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('supabase_token')}`,
@@ -77,7 +78,7 @@ export default function RecommendationsDashboard({ initialWebsite }: { initialWe
     if (!website) return;
     try {
       const apiUrl = getApiUrl();
-      const res = await fetch(`${apiUrl}/api/websites/${website.id}/recommendations/${id}`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/recommendations/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

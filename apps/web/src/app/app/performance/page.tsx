@@ -2,6 +2,7 @@ import { createClient } from '../../../lib/supabase/server';
 import PerformanceClient from './PerformanceClient';
 import { getApiUrl } from '../../../lib/api';
 import styles from '../app.module.css';
+import { apiFetch } from '../../../lib/api';
 
 export default async function PerformancePage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function PerformancePage() {
   if (session?.access_token) {
     try {
       const apiUrl = getApiUrl();
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: 'no-store',
       });
@@ -22,7 +23,7 @@ export default async function PerformancePage() {
         activeWebsite = siteData.website || null;
 
         if (activeWebsite) {
-          const perfRes = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/performance`, {
+          const perfRes = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/performance`, {
             headers: { Authorization: `Bearer ${session.access_token}` },
             cache: 'no-store',
           });

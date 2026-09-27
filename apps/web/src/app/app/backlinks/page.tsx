@@ -1,6 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import BacklinksClient from './BacklinksClient';
 import { getApiUrl } from '../../../lib/api';
+import { apiFetch } from '../../../lib/api';
 
 export default async function BacklinksPage() {
   const supabase = await createClient();
@@ -11,7 +12,7 @@ export default async function BacklinksPage() {
   if (session?.access_token) {
     try {
       const apiUrl = getApiUrl();
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: 'no-store',
       });

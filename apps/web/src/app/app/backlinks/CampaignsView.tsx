@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import styles from './backlinks.module.css';
+import { apiFetch } from '../../../lib/api';
 
 interface CampaignsViewProps {
   websiteId: string;
@@ -18,7 +19,7 @@ export default function CampaignsView({ websiteId, accessToken, apiUrl }: Campai
 
   const fetchCampaigns = async () => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const data = await res.json();
@@ -37,7 +38,7 @@ export default function CampaignsView({ websiteId, accessToken, apiUrl }: Campai
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns/${id}/status`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns/${id}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,7 +55,7 @@ export default function CampaignsView({ websiteId, accessToken, apiUrl }: Campai
   const generateMessage = async (id: string) => {
     setGeneratingFor(id);
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns/${id}/generate-message`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns/${id}/generate-message`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` },
       });

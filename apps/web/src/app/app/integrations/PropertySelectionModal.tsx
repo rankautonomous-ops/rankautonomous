@@ -5,6 +5,7 @@ import { X, Loader2 } from 'lucide-react';
 import styles from './integrations.module.css';
 
 import { createClient } from '../../../lib/supabase/client';
+import { apiFetch } from '../../../lib/api';
 
 interface Property {
   id: string; // Internal identifier for the radio button
@@ -59,7 +60,7 @@ export default function PropertySelectionModal({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Not authenticated');
 
-        const res = await fetch(`${apiUrl}${fetchUrl}?websiteId=${websiteId}`, {
+        const res = await apiFetch(`${apiUrl}${fetchUrl}?websiteId=${websiteId}`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         const data = await res.json();
@@ -123,7 +124,7 @@ export default function PropertySelectionModal({
         ? { websiteId, siteUrl: selectedProp.raw.siteUrl }
         : { websiteId, propertyId: selectedProp.raw.propertyId };
 
-      const res = await fetch(`${apiUrl}${submitUrl}`, {
+      const res = await apiFetch(`${apiUrl}${submitUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

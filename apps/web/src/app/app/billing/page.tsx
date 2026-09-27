@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Check, CreditCard, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
+import { apiFetch } from '../../../lib/api';
 import styles from '../app.module.css';
 import { InvoicesTable } from './components/InvoicesTable';
 import { PaymentMethodManager } from './components/PaymentMethodManager';
@@ -61,33 +62,15 @@ function BillingContent() {
       try {
         if (!isMountedRef.current) return;
 
-        const supabase = createClient();
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError || !session) {
-          if (isMountedRef.current) {
-            setBillingState('ERROR');
-            setErrorMessage('Unable to verify authentication session. Please refresh or log in again.');
-          }
-          return;
-        }
-
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
         const queryParams = new URLSearchParams();
         if (sessionIdParam) {
           queryParams.set('session_id', sessionIdParam);
         }
         const endpointUrl = queryParams.toString()
-          ? `${apiUrl}/api/billing/subscription?${queryParams.toString()}`
-          : `${apiUrl}/api/billing/subscription`;
+          ? `/api/billing/subscription?${queryParams.toString()}`
+          : `/api/billing/subscription`;
 
-        const res = await fetch(endpointUrl, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+        const res = await apiFetch(endpointUrl, {
           cache: 'no-store',
         });
 
@@ -145,7 +128,7 @@ function BillingContent() {
         }
       }
     },
-    [isCheckoutReturn]
+    [isCheckoutReturn, sessionIdParam]
   );
 
   useEffect(() => {
@@ -167,20 +150,9 @@ function BillingContent() {
     setErrorMessage(null);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error('Authentication session not found.');
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/billing/create-checkout-session`, {
+      const res = await apiFetch(`/api/billing/create-checkout-session`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ plan }),

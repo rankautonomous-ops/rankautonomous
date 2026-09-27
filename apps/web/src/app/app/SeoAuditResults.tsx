@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import styles from './app.module.css';
+import { apiFetch } from '../../lib/api';
 
 interface SeoAuditResultsProps {
   websiteId: string;
@@ -24,7 +25,7 @@ export default function SeoAuditResults({ websiteId, token, crawlStatus }: SeoAu
   useEffect(() => {
     if (effectiveCrawlStatus !== 'COMPLETED' && effectiveCrawlStatus !== 'ACTIVE') {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      fetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
+      apiFetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => res.ok ? res.json() : null)
@@ -40,14 +41,14 @@ export default function SeoAuditResults({ websiteId, token, crawlStatus }: SeoAu
   const fetchAudit = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
         setAuditData(data);
         if (data && data.status === 'COMPLETED') {
-           const issRes = await fetch(`${apiUrl}/api/websites/${websiteId}/audit/issues`, {
+           const issRes = await apiFetch(`${apiUrl}/api/websites/${websiteId}/audit/issues`, {
              headers: { Authorization: `Bearer ${token}` }
            });
            if (issRes.ok) {
@@ -77,7 +78,7 @@ export default function SeoAuditResults({ websiteId, token, crawlStatus }: SeoAu
     setIsRequesting(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      await fetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
+      await apiFetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });

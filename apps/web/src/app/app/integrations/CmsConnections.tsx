@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Trash2, Settings, Loader2, Globe, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
 import styles from './integrations.module.css';
+import { apiFetch } from '../../../lib/api';
 
 export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
   const [connections, setConnections] = useState<any[]>([]);
@@ -17,7 +18,7 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
     setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/cms-connections`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/cms-connections`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (res.ok) {
@@ -60,7 +61,7 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
         payload.metadata = { authMethod: 'BEARER' };
       }
 
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/cms-connections`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/cms-connections`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -88,7 +89,7 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
     setSuccess(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/cms-connections/${id}/test`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/cms-connections/${id}/test`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -110,7 +111,7 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
     if (!confirm('Disconnect this CMS?')) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${apiUrl}/api/websites/${websiteId}/cms-connections/${id}`, {
+      await apiFetch(`${apiUrl}/api/websites/${websiteId}/cms-connections/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

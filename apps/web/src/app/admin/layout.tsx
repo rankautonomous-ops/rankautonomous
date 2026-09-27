@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import styles from './admin.module.css';
+import { apiFetch } from '../../lib/api';
 import { 
   LayoutDashboard, Users, Globe, CreditCard, 
   FileText, Activity, Key, Link as LinkIcon, 
@@ -47,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
 
       // Check server-side for admin role to be secure
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/me`, {
+      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/me`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         }

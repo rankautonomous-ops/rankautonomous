@@ -6,6 +6,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { createClient } from '@/lib/supabase/client';
 import styles from '../../app.module.css';
+import { apiFetch } from '../../../../lib/api';
 
 // Initialize Stripe outside component
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
@@ -97,7 +98,7 @@ export function PaymentMethodManager() {
       if (!session) return;
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/billing/payment-methods`, {
+      const res = await apiFetch(`${apiUrl}/api/billing/payment-methods`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       
@@ -126,7 +127,7 @@ export function PaymentMethodManager() {
       if (!session) return;
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/billing/payment-methods/setup`, {
+      const res = await apiFetch(`${apiUrl}/api/billing/payment-methods/setup`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

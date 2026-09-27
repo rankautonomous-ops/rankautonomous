@@ -7,6 +7,7 @@ import { Play, Check, X, RefreshCw, Edit3, Globe, ShieldCheck, Link as LinkIcon,
 import Link from 'next/link';
 import styles from '../../app.module.css';
 import contentStyles from '../content.module.css';
+import { apiFetch } from '../../../../lib/api';
 
 export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   const [activeWebsite, setActiveWebsite] = useState<any>(null);
@@ -42,7 +43,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!siteRes.ok) throw new Error('No active website');
@@ -50,7 +51,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
       const targetSite = siteData.website || siteData;
       setActiveWebsite(targetSite);
       
-      const artRes = await fetch(`${apiUrl}/api/websites/${targetSite.id}/articles/${articleId}`, {
+      const artRes = await apiFetch(`${apiUrl}/api/websites/${targetSite.id}/articles/${articleId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!artRes.ok) throw new Error('Failed to load article');
@@ -73,7 +74,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
 
       // Check WordPress integration
       try {
-        const connRes = await fetch(`${apiUrl}/api/websites/${targetSite.id}/cms-connections`, {
+        const connRes = await apiFetch(`${apiUrl}/api/websites/${targetSite.id}/cms-connections`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (connRes.ok) {
@@ -109,7 +110,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
     const poll = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`${apiUrl}/api/websites/${websiteId}/articles/${articleId}`, {
+        const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/articles/${articleId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
@@ -147,7 +148,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
     setIsProcessing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/${action}`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/${action}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +179,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
     setIsPublishing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/publish`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/publish`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -205,7 +206,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
     setIsPublishing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/publish`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/publish`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -229,7 +230,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   const saveArticle = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

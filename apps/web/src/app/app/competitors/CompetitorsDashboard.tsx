@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
 import { Plus, Trash, Zap, ExternalLink, ChevronRight, Check } from 'lucide-react';
 import styles from '../app.module.css';
+import { apiFetch } from '../../../lib/api';
 
 export default function CompetitorsDashboard() {
   const [activeWebsite, setActiveWebsite] = useState<any>(null);
@@ -35,7 +36,7 @@ export default function CompetitorsDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const siteRes = await fetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!siteRes.ok) throw new Error('No active website');
@@ -56,7 +57,7 @@ export default function CompetitorsDashboard() {
 
   const fetchCompetitors = async (websiteId: string, token: string) => {
     try {
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/competitors`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/competitors`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -77,7 +78,7 @@ export default function CompetitorsDashboard() {
     setAdding(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +109,7 @@ export default function CompetitorsDashboard() {
     setSuggestError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/suggest`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/suggest`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });
@@ -131,7 +132,7 @@ export default function CompetitorsDashboard() {
     if (!activeWebsite) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +159,7 @@ export default function CompetitorsDashboard() {
     if (!activeWebsite || !confirm('Are you sure you want to delete this competitor?')) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/${id}`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });
@@ -182,7 +183,7 @@ export default function CompetitorsDashboard() {
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/${id}/analyze`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/${id}/analyze`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });
@@ -214,7 +215,7 @@ export default function CompetitorsDashboard() {
     if (!activeWebsite) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/${compId}/add-keyword`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/competitors/${compId}/add-keyword`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +239,7 @@ export default function CompetitorsDashboard() {
     if (!activeWebsite) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

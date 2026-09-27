@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ArrowRight, Loader2, Play, CheckCircle2, RotateCcw } from 'lucide-react';
 import styles from './app.module.css';
+import { apiFetch } from '../../lib/api';
 
 interface AttentionAuditActionProps {
   websiteId: string;
@@ -26,7 +27,7 @@ export default function AttentionAuditAction({
 
     try {
       // 1. Check current crawl status
-      const crawlRes = await fetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
+      const crawlRes = await apiFetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -48,7 +49,7 @@ export default function AttentionAuditAction({
       if (crawlStatus === 'NOT_STARTED' || crawlStatus === 'FAILED' || crawlStatus === 'CANCELLED') {
         // Trigger new crawl
         setFeedback(crawlStatus === 'FAILED' ? 'Retrying website crawl...' : 'Starting new website crawl...');
-        const startRes = await fetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
+        const startRes = await apiFetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ export default function AttentionAuditAction({
 
       if (crawlStatus === 'COMPLETED') {
         // Crawl is completed, now verify / trigger SEO Audit
-        const auditRes = await fetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
+        const auditRes = await apiFetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -85,7 +86,7 @@ export default function AttentionAuditAction({
 
         if (!auditData || auditData.status === 'FAILED') {
           setFeedback('Starting SEO Health Audit on crawled pages...');
-          const startAuditRes = await fetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
+          const startAuditRes = await apiFetch(`${apiUrl}/api/websites/${websiteId}/audit`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { RefreshCw, XCircle, CheckCircle, Play, AlertCircle, RotateCcw } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 interface CrawlProgressProps {
   websiteId: string;
@@ -28,7 +29,7 @@ export default function CrawlProgress({ websiteId, initialStatus, token, onCrawl
   const fetchProgress = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -71,7 +72,7 @@ export default function CrawlProgress({ websiteId, initialStatus, token, onCrawl
     setIsStarting(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
+      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/crawl`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +101,7 @@ export default function CrawlProgress({ websiteId, initialStatus, token, onCrawl
     setIsCancelling(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      await fetch(`${apiUrl}/api/websites/${websiteId}/crawl/cancel`, {
+      await apiFetch(`${apiUrl}/api/websites/${websiteId}/crawl/cancel`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`

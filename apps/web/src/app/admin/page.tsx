@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import styles from './admin.module.css';
+import { apiFetch } from '../../lib/api';
 
 interface DashboardData {
   users: { total: number; recent: number };
@@ -27,7 +28,7 @@ export default function AdminOverview() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/overview`, {
+      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/overview`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       if (!res.ok) throw new Error('Failed to load overview');
