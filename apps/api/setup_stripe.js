@@ -1,7 +1,12 @@
 const Stripe = require('stripe');
 
 async function setupStripe() {
-  const stripe = new Stripe('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', {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is required to run setup_stripe.js');
+  }
+
+  const stripe = new Stripe(secretKey, {
     apiVersion: '2022-11-15',
   });
 
@@ -11,18 +16,18 @@ async function setupStripe() {
     description: 'Complete SEO Automation & Backlink Platform',
   });
 
-  console.log('Creating Monthly Price ($199/month)...');
+  console.log('Creating Monthly Price ($149/month)...');
   const monthlyPrice = await stripe.prices.create({
     product: product.id,
-    unit_amount: 19900, // $199.00
+    unit_amount: 14900, // $149.00
     currency: 'usd',
     recurring: { interval: 'month' },
   });
 
-  console.log('Creating Annual Price ($1788/year)...');
+  console.log('Creating Annual Price ($1,188/year)...');
   const annualPrice = await stripe.prices.create({
     product: product.id,
-    unit_amount: 178800, // $1788.00
+    unit_amount: 118800, // $1188.00
     currency: 'usd',
     recurring: { interval: 'year' },
   });

@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Loader2, } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { PRICING_CONFIG } from '@/lib/pricing';
 import styles from './pricing.module.css';
 import { apiFetch } from '../../lib/api';
 
@@ -84,7 +85,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
           </button>
         </div>
         <span className={styles.savingsBadge}>
-          Save $600 / year
+          {PRICING_CONFIG.savings.badgeText}
         </span>
       </div>
 
@@ -110,18 +111,25 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
 
           <div className={styles.priceRow}>
             <span className={styles.priceAmount}>
-              {billingCycle === 'annual' ? '$149' : '$199'}
+              {billingCycle === 'annual'
+                ? PRICING_CONFIG.annual.formattedMonthlyEquivalent
+                : PRICING_CONFIG.monthly.formattedPrice}
             </span>
             <span className={styles.pricePeriod}>
-              / month {billingCycle === 'annual' && <span className={styles.priceBilledNote}>(billed $1,788/year)</span>}
+              / month{' '}
+              {billingCycle === 'annual' && (
+                <span className={styles.priceBilledNote}>
+                  {PRICING_CONFIG.annual.billedNote}
+                </span>
+              )}
             </span>
           </div>
 
           <div className={styles.billingNote}>
             {billingCycle === 'annual' ? (
-              <span>Annual commitment, billed yearly. Save 25% with full autonomy.</span>
+              <span>$99/month billed annually at $1,188/year. Save $600 with full autonomy.</span>
             ) : (
-              <span>Flexible monthly subscription. Cancel anytime without lock-in.</span>
+              <span>Flexible monthly subscription ($149/month). Cancel anytime without lock-in.</span>
             )}
           </div>
         </div>

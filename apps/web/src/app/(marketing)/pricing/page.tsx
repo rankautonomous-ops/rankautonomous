@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 export const metadata: Metadata = {
   title: 'Pricing',
   description:
-    'Simple, transparent pricing for RankAutonomous: $199/month or $149/month equivalent billed annually ($1,788/yr). Put your SEO on continuous autopilot.',
+    'Simple, transparent pricing for RankAutonomous: $149/month or $99/month equivalent billed annually ($1,188/yr). Put your SEO on continuous autopilot.',
 };
 
 export default async function PricingPage() {
@@ -45,7 +45,7 @@ export default async function PricingPage() {
           </p>
           <p>
             <strong>How does the Annual discount work?</strong><br />
-            Annual subscriptions are billed at $1,788 per year upfront ($149/month equivalent), saving you $600 compared to paying the $199/month monthly rate.
+            Annual subscriptions are billed at $1,188 per year upfront ($99/month equivalent), saving you $600 compared to paying the $149/month monthly rate.
           </p>
           <p>
             <strong>Can I cancel my subscription anytime?</strong><br />

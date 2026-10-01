@@ -361,9 +361,9 @@ Animate steps subtly on scroll.
 
 Pricing should focus on the single RankAutonomous offering.
 
-Monthly: \$199/month
+Monthly: \$149/month
 
-Annual: \$1,788/year (\$149/month equivalent)
+Annual: \$1,188/year (\$99/month equivalent)
 
 Show: - Annual savings - Monthly/annual toggle - primary CTA - concise
 feature list
@@ -734,7 +734,7 @@ YOUR PLAN
 
 RankAutonomous Complete
 
-$199 / month
+$149 / month
 
 ACTIVE
 

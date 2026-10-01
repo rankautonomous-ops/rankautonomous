@@ -61,15 +61,15 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 According to the PRD:
 - **Product Name**: `RankAutonomous Complete`
-- **Monthly Recurring Price**: `$199.00 USD / month`
-- **Annual Recurring Price**: `$1,788.00 USD / year` ($149/month equivalent, saving $600/year)
+- **Monthly Recurring Price**: `$149.00 USD / month`
+- **Annual Recurring Price**: `$1,188.00 USD / year` ($99/month equivalent, saving $600/year)
 
 ### How to create these in your Stripe Dashboard (Test Mode):
 1. Go to **Stripe Dashboard** → Ensure **Test Mode** toggle is **ON**.
 2. Navigate to **Product Catalog** → Click **Add Product**.
 3. Set Name to `RankAutonomous Complete`.
-4. Add Pricing 1: `$199.00`, Recurring, Billing period: `Monthly`. Save and copy the Price ID (`price_...`) to `STRIPE_MONTHLY_PRICE_ID`.
-5. Add Pricing 2: `$1,788.00`, Recurring, Billing period: `Yearly`. Save and copy the Price ID (`price_...`) to `STRIPE_ANNUAL_PRICE_ID`.
+4. Add Pricing 1: `$149.00`, Recurring, Billing period: `Monthly`. Save and copy the Price ID (`price_...`) to `STRIPE_MONTHLY_PRICE_ID`.
+5. Add Pricing 2: `$1,188.00`, Recurring, Billing period: `Yearly`. Save and copy the Price ID (`price_...`) to `STRIPE_ANNUAL_PRICE_ID`.
 
 ---
 

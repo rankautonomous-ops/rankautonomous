@@ -21,7 +21,7 @@ The application has been engineered as a production-grade, multi-tenant SaaS app
 | :--- | :---: | :--- |
 | **User Registration & Login** | ✅ Completed | Supabase Auth integration, JWT verification middleware, session cookies. |
 | **Password Reset & Email Verification** | ✅ Completed | Managed Supabase Auth email workflows. |
-| **Subscription Plans ($199/mo, $149/mo annual)** | ✅ Completed | Stripe Checkout integration with dynamic monthly and annual pricing IDs. |
+| **Subscription Plans ($149/mo, $99/mo annual)** | ✅ Completed | Stripe Checkout integration with dynamic monthly and annual pricing IDs. |
 | **Stripe Webhooks & Syncing** | ✅ Completed | Raw body HMAC verification for `checkout.session.completed`, `customer.subscription.updated/deleted`. |
 | **Customer Billing Portal** | ✅ Completed | Stripe Customer Portal redirection for card updates, cancellations, and invoices. |
 | **Subscription Access Guard** | ✅ Completed | `requireSubscription` middleware enforces active subscription on all protected endpoints. |
@@ -201,7 +201,7 @@ Below is a detailed inventory of every tool, library, and cloud service used in 
 
 ### 6. Stripe (v22.x)
 - **Category:** Payment Processing & Subscription Billing
-- **Purpose:** Manages subscription billing ($199/month and $149/month annual equivalent), checkout sessions, customer portal, and invoice tracking.
+- **Purpose:** Manages subscription billing ($149/month and $99/month annual equivalent), checkout sessions, customer portal, and invoice tracking.
 - **Why Chosen:** Industry standard for SaaS recurring billing with built-in SCA compliance and webhook notifications.
 - **Example in Project:**
   - `apps/api/src/routes/webhook.ts`: Cryptographically validates Stripe signatures using `stripe.webhooks.constructEvent()` and keeps subscription status synced with Supabase.

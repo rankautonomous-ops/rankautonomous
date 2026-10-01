@@ -42,7 +42,7 @@
 
 - **Landing:** PASS (Marketing UI available)
 - **Auth:** PASS (Supabase active)
-- **Plan:** PASS (Pricing matches PRD: $199/mo, $149/mo annual)
+- **Plan:** PASS (Pricing: $149/mo, $99/mo annual [$1,188/yr])
 - **Stripe:** PASS (Session sync & Webhook)
 - **Onboarding:** PASS (Website connection logic active)
 - **Website:** PASS (Strict tenant boundaries)

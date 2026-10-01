@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Check, CreditCard, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
 import { apiFetch } from '../../../lib/api';
+import { PRICING_CONFIG } from '../../../lib/pricing';
 import styles from '../app.module.css';
 import { InvoicesTable } from './components/InvoicesTable';
 import { PaymentMethodManager } from './components/PaymentMethodManager';
@@ -331,8 +332,8 @@ function BillingContent() {
                 <span className={styles.infoLabel}>Pricing Rate</span>
                 <span className={styles.infoValue}>
                   {subscription.interval === 'year' || subscription.plan === 'annual'
-                    ? '$149 / month (billed $1,788 annually)'
-                    : '$199 / month'}
+                    ? '$99 / month (billed $1,188 annually)'
+                    : '$149 / month'}
                 </span>
               </div>
 
@@ -447,7 +448,7 @@ function BillingContent() {
                     letterSpacing: '-0.03em',
                   }}
                 >
-                  $199<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month</span>
+                  $149<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month</span>
                 </div>
                 <p
                   style={{
@@ -490,7 +491,7 @@ function BillingContent() {
                 className={styles.secondaryButton}
                 style={{ width: '100%', height: '48px' }}
               >
-                {actionLoading ? 'Connecting...' : 'Subscribe Monthly ($199/mo)'}
+                {actionLoading ? 'Connecting...' : 'Subscribe Monthly ($149/mo)'}
               </button>
             </div>
 
@@ -536,7 +537,7 @@ function BillingContent() {
                     letterSpacing: '-0.03em',
                   }}
                 >
-                  $149<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month eq.</span>
+                  $99<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month eq.</span>
                 </div>
                 <p
                   style={{
@@ -546,7 +547,7 @@ function BillingContent() {
                     lineHeight: '1.5',
                   }}
                 >
-                  Billed annually at $1,788/year. Best value for compounding domain growth.
+                  $99/month billed annually at $1,188/year. Best value for compounding domain growth.
                 </p>
                 <ul
                   style={{
@@ -564,7 +565,7 @@ function BillingContent() {
                     <Check size={16} color="var(--success)" /> Complete RankAutonomous access
                   </li>
                   <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <Check size={16} color="var(--success)" /> Save 25% compared to monthly
+                    <Check size={16} color="var(--success)" /> Save $600/year compared to monthly
                   </li>
                   <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <Check size={16} color="var(--success)" /> Priority crawl &amp; AI generation
@@ -579,7 +580,7 @@ function BillingContent() {
                 className={styles.primaryButton}
                 style={{ width: '100%', height: '48px' }}
               >
-                {actionLoading ? 'Connecting...' : 'Subscribe Annually ($1,788/yr)'}
+                {actionLoading ? 'Connecting...' : 'Subscribe Annually ($1,188/yr)'}
               </button>
             </div>
           </div>

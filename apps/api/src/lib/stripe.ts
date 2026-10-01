@@ -35,6 +35,7 @@ export const STRIPE_ANNUAL_PRICE_ID = getStripeAnnualPriceId();
 export const STRIPE_WEBHOOK_SECRET = getStripeWebhookSecret();
 
 export type PlanType = 'monthly' | 'annual';
+export { PRICING_CONFIG } from './pricing';
 
 /**
  * Validates and maps a safe plan type to the server-configured Stripe Price ID.
