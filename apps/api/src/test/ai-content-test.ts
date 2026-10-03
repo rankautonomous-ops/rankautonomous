@@ -16,8 +16,29 @@ const OTHER_USER_ID = 'other-content-user';
 const OTHER_AUTH_ID = 'other-auth-id';
 const OTHER_WEBSITE_ID = 'other-content-website';
 
+let pauseGenerationPromise: Promise<void> | null = null;
+let resumeGeneration: (() => void) | null = null;
+
+function pauseAiGeneration() {
+  pauseGenerationPromise = new Promise(resolve => {
+    resumeGeneration = resolve;
+  });
+}
+
+function resumeAiGeneration() {
+  if (resumeGeneration) {
+    resumeGeneration();
+    pauseGenerationPromise = null;
+    resumeGeneration = null;
+  }
+}
+
 class MockAiProvider implements IAiProvider {
   async generateCompletion(opts: AiCompletionOptions): Promise<string> {
+    if (pauseGenerationPromise) {
+      await pauseGenerationPromise;
+    }
+
     const prompt = opts.systemPrompt + opts.userPrompt;
 
     if (prompt.includes('Content Reviewer')) {
@@ -31,6 +52,14 @@ class MockAiProvider implements IAiProvider {
         issues: ["Meta description could be punchier"],
         recommendations: ["Ship it"]
       });
+    }
+
+    if (prompt.includes('DELAY_GENERATION')) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    if (prompt.includes('SENSITIVE_LEAK_ERROR')) {
+      throw new Error('Google Generative AI error: 400 Bad Request at https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyDfakeSecretKey1234567890abcdefghij with Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token123');
     }
 
     if (prompt.includes('FAIL_GENERATION')) {
@@ -250,46 +279,78 @@ async function runAll25Tests() {
     article2Id = validConfigRes.body.id;
     console.log('PASS: 8. Valid configuration');
 
-    // 9. Generation Request
+    // 9. PLANNED -> GENERATING Lifecycle on Generation Request
+    pauseAiGeneration();
+    await prisma.article.update({
+      where: { id: articleId },
+      data: { status: 'PLANNED', topic: 'AI Content Strategy' }
+    });
     const genReqRes = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/generate`)
       .set(mockAuthHeaders);
     assert.equal(genReqRes.status, 202, 'Generation request must return 202 Accepted');
     assert.ok(genReqRes.body.jobId, 'Should return jobId');
     assert.equal(genReqRes.body.status, 'QUEUED', 'Status should be QUEUED');
+    assert.equal(genReqRes.body.articleStatus, 'GENERATING', 'articleStatus should be GENERATING');
     testGenJobId = genReqRes.body.jobId;
-    console.log('PASS: 9. Generation request');
 
-    // 10. Generation Status
+    const plannedToGeneratingArticle = await prisma.article.findUnique({ where: { id: articleId } });
+    assert.equal(plannedToGeneratingArticle?.status, 'GENERATING', 'Article status must transition from PLANNED to GENERATING when queued');
+    console.log('PASS: 9. PLANNED -> GENERATING lifecycle on generation request');
+
+    // 10. Generation Status & API retrieval during generation
     const genStatusRes = await request(app)
       .get(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}`)
       .set(mockAuthHeaders);
     assert.equal(genStatusRes.status, 200);
+    assert.equal(genStatusRes.body.status, 'GENERATING', 'Article status returned via API must be GENERATING');
     assert.ok(genStatusRes.body.latestJob, 'Article should include latestJob info');
-    assert.ok(['QUEUED', 'PROCESSING', 'COMPLETED'].includes(genStatusRes.body.latestJob.status));
+    assert.ok(['QUEUED', 'PROCESSING'].includes(genStatusRes.body.latestJob.status));
     console.log('PASS: 10. Generation status');
 
-    // 11. Successful AI Generation
-    await generateArticle(testGenJobId);
+    // Resume the AI generation and wait for completion
+    resumeAiGeneration();
+    for (let i = 0; i < 20; i++) {
+      const check = await prisma.article.findUnique({ where: { id: articleId } });
+      if (check?.status === 'DRAFT') break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    // 11. Successful AI Generation Persists Content & Transitions to DRAFT
     const postGenArticle = await prisma.article.findUnique({ where: { id: articleId } });
     assert.equal(postGenArticle?.status, 'DRAFT', 'Article status should be DRAFT after generation');
     assert.equal(postGenArticle?.title, 'Test Article Title');
+    assert.equal(postGenArticle?.slug, 'test-article-title');
+    assert.deepEqual((postGenArticle?.seoData as any)?.headings, ["H2: Overview", "H3: Key Benefits"]);
     assert.ok(postGenArticle?.content?.includes('Comprehensive guide'), 'Content should be populated');
     assert.ok(postGenArticle?.wordCount && postGenArticle.wordCount > 0, 'Word count should be computed');
-    console.log('PASS: 11. Successful AI generation');
+    console.log('PASS: 11. Successful AI generation persists content');
 
-    // 12. Malformed AI JSON
+    // 12. Malformed AI JSON changes Article status to FAILED and persists safely
     await prisma.article.update({ where: { id: article2Id }, data: { topic: 'FAIL_GENERATION' } });
     const malformedJob = await prisma.aiJob.create({
       data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'GENERATE_ARTICLE', payload: { articleId: article2Id } }
     });
     await generateArticle(malformedJob.id);
     const malformedJobResult = await prisma.aiJob.findUnique({ where: { id: malformedJob.id } });
+    const malformedArticle = await prisma.article.findUnique({ where: { id: article2Id } });
     assert.equal(malformedJobResult?.status, 'FAILED');
+    assert.equal(malformedArticle?.status, 'FAILED', 'Article status must transition to FAILED on AI generation error');
     assert.ok(malformedJobResult?.error?.includes('AI returned invalid JSON'));
-    console.log('PASS: 12. Malformed AI JSON');
+    assert.ok((malformedArticle?.generationMetadata as any)?.error?.includes('AI returned invalid JSON'));
+    console.log('PASS: 12. Malformed AI JSON sets Article to FAILED');
 
-    // 13. Missing Required AI Fields
+    // 13. API/Frontend can retrieve the FAILED state and error details
+    const failedApiRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/articles/${article2Id}`)
+      .set(mockAuthHeaders);
+    assert.equal(failedApiRes.status, 200);
+    assert.equal(failedApiRes.body.status, 'FAILED', 'API must return FAILED status for article');
+    assert.ok(failedApiRes.body.latestJob?.error?.includes('AI returned invalid JSON'), 'API latestJob must have error');
+    assert.ok((failedApiRes.body.generationMetadata as any)?.error?.includes('AI returned invalid JSON'), 'API metadata must have error');
+    console.log('PASS: 13. Frontend/API retrieval of failure state');
+
+    // 14. Missing Required AI Fields
     await prisma.article.update({ where: { id: article2Id }, data: { topic: 'MALFORMED_JSON' } });
     const missingFieldJob = await prisma.aiJob.create({
       data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'GENERATE_ARTICLE', payload: { articleId: article2Id } }
@@ -298,9 +359,26 @@ async function runAll25Tests() {
     const missingResult = await prisma.aiJob.findUnique({ where: { id: missingFieldJob.id } });
     assert.equal(missingResult?.status, 'FAILED');
     assert.ok(missingResult?.error?.includes('Missing content in AI output'));
-    console.log('PASS: 13. Missing required AI fields');
+    console.log('PASS: 14. Missing required AI fields');
 
-    // 14. Oversized AI Output Bounding
+    // 15. Sensitive Provider Information & API Key Redaction in Errors
+    await prisma.article.update({ where: { id: article2Id }, data: { topic: 'SENSITIVE_LEAK_ERROR' } });
+    const leakJob = await prisma.aiJob.create({
+      data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'GENERATE_ARTICLE', payload: { articleId: article2Id } }
+    });
+    await generateArticle(leakJob.id);
+    const leakJobResult = await prisma.aiJob.findUnique({ where: { id: leakJob.id } });
+    const leakArticle = await prisma.article.findUnique({ where: { id: article2Id } });
+    const leakArticleError = (leakArticle?.generationMetadata as any)?.error || '';
+    assert.equal(leakJobResult?.status, 'FAILED');
+    assert.ok(!leakJobResult?.error?.includes('AIzaSyDfakeSecretKey1234567890abcdefghij'), 'API key must not leak in AiJob error');
+    assert.ok(!leakJobResult?.error?.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'), 'Bearer token must not leak in AiJob error');
+    assert.ok(!leakArticleError.includes('AIzaSyDfakeSecretKey1234567890abcdefghij'), 'API key must not leak in Article error');
+    assert.ok(leakJobResult?.error?.includes('[REDACTED_API_KEY]'), 'API key must be redacted in AiJob error');
+    assert.ok(leakArticleError.includes('[REDACTED_API_KEY]'), 'API key must be redacted in Article error');
+    console.log('PASS: 15. Sensitive provider info and API key redaction');
+
+    // 16. Oversized AI Output Bounding
     await prisma.article.update({ where: { id: article2Id }, data: { topic: 'OVERSIZED_CONTENT' } });
     const oversizedJob = await prisma.aiJob.create({
       data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'GENERATE_ARTICLE', payload: { articleId: article2Id } }
@@ -308,13 +386,13 @@ async function runAll25Tests() {
     await generateArticle(oversizedJob.id);
     const oversizedArticle = await prisma.article.findUnique({ where: { id: article2Id } });
     assert.ok(oversizedArticle?.content && oversizedArticle.content.length <= 50000, 'Content must be bounded to 50k chars');
-    console.log('PASS: 14. Oversized AI output');
+    console.log('PASS: 16. Oversized AI output');
 
-    // 15. Internal-Link Validation
+    // 17. Internal-Link Validation
     assert.deepEqual(postGenArticle?.internalLinks, ['https://example.com/valid'], 'Valid crawled links must be preserved');
-    console.log('PASS: 15. Internal-link validation');
+    console.log('PASS: 17. Internal-link validation');
 
-    // 16. Invented Internal URL Rejection
+    // 18. Invented Internal URL Rejection
     await prisma.article.update({ where: { id: article2Id }, data: { topic: 'INVENTED_LINKS' } });
     const inventedLinkJob = await prisma.aiJob.create({
       data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'GENERATE_ARTICLE', payload: { articleId: article2Id } }
@@ -322,14 +400,13 @@ async function runAll25Tests() {
     await generateArticle(inventedLinkJob.id);
     const filteredArticle = await prisma.article.findUnique({ where: { id: article2Id } });
     assert.deepEqual(filteredArticle?.internalLinks, ['https://example.com/valid'], 'Invented URLs must be stripped');
-    console.log('PASS: 16. Invented internal URL rejection');
+    console.log('PASS: 18. Invented internal URL rejection');
 
-    // 17. External-Reference Safety
-    // Verify that articles do not persist fabricated citations
+    // 19. External-Reference Safety
     assert.equal(filteredArticle?.externalReferences, null, 'External references not fabricated as verified');
-    console.log('PASS: 17. External-reference safety');
+    console.log('PASS: 19. External-reference safety');
 
-    // 18. AI Review Success
+    // 20. AI Review Success
     const reviewReqRes = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/review`)
       .set(mockAuthHeaders);
@@ -340,9 +417,9 @@ async function runAll25Tests() {
     const reviewData: any = reviewedArticle?.aiReviewData;
     assert.equal(reviewData.score, 95);
     assert.ok(reviewData.strengths.length > 0);
-    console.log('PASS: 18. AI review success');
+    console.log('PASS: 20. AI review success');
 
-    // 19. AI Review Failure
+    // 21. AI Review Failure
     await prisma.article.update({ where: { id: article2Id }, data: { topic: 'FAIL_REVIEW', content: '<p>Some content</p>' } });
     const badReviewJob = await prisma.aiJob.create({
       data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'REVIEW_ARTICLE', payload: { articleId: article2Id } }
@@ -350,17 +427,17 @@ async function runAll25Tests() {
     await reviewArticle(badReviewJob.id);
     const badReviewJobResult = await prisma.aiJob.findUnique({ where: { id: badReviewJob.id } });
     assert.equal(badReviewJobResult?.status, 'FAILED');
-    console.log('PASS: 19. AI review failure');
+    console.log('PASS: 21. AI review failure');
 
-    // 20. Invalid Workflow Transition
+    // 22. Invalid Workflow Transition
     const invalidTransRes = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${article2Id}/transition`)
       .set(mockAuthHeaders)
-      .send({ targetStatus: 'PUBLISHED' }); // Status is DRAFT, cannot jump straight to PUBLISHED
-    assert.equal(invalidTransRes.status, 400, 'Invalid transition from DRAFT to PUBLISHED must return 400');
-    console.log('PASS: 20. Invalid workflow transition');
+      .send({ targetStatus: 'PUBLISHED' }); // Status is DRAFT/FAILED, cannot jump straight to PUBLISHED
+    assert.equal(invalidTransRes.status, 400, 'Invalid transition to PUBLISHED must return 400');
+    console.log('PASS: 22. Invalid workflow transition');
 
-    // 21. Valid Workflow Transition
+    // 23. Valid Workflow Transition
     // articleId is currently USER_REVIEW. Allowed transitions: APPROVED or DRAFT.
     const validTransRes = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/transition`)
@@ -368,39 +445,45 @@ async function runAll25Tests() {
       .send({ targetStatus: 'APPROVED' });
     assert.equal(validTransRes.status, 200, 'Valid transition to APPROVED returns 200');
     assert.equal(validTransRes.body.status, 'APPROVED');
-    console.log('PASS: 21. Valid workflow transition');
+    console.log('PASS: 23. Valid workflow transition');
 
-    // 22. Duplicate Generation Prevention
-    // Reset status to DRAFT and create an in-flight job
+    // 24. Duplicate Generation Prevention (Active AiJob or Article status GENERATING)
+    // 24a. Test block when article status is GENERATING
+    await prisma.article.update({ where: { id: articleId }, data: { status: 'GENERATING' } });
+    const dupResGenerating = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/generate`)
+      .set(mockAuthHeaders);
+    assert.equal(dupResGenerating.status, 409, 'Duplicate generation request when article is GENERATING must be rejected with 409 Conflict');
+
+    // 24b. Test block when active AiJob exists
     const inFlightJob = await prisma.aiJob.create({
       data: { userId: MOCK_USER_ID, websiteId: MOCK_WEBSITE_ID, type: 'GENERATE_ARTICLE', status: 'PROCESSING', payload: { articleId } }
     });
-    await prisma.article.update({ where: { id: articleId }, data: { generationJobId: inFlightJob.id } });
-    const dupRes = await request(app)
+    await prisma.article.update({ where: { id: articleId }, data: { status: 'DRAFT', generationJobId: inFlightJob.id } });
+    const dupResJob = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/generate`)
       .set(mockAuthHeaders);
-    assert.equal(dupRes.status, 409, 'Duplicate generation request must be rejected with 409 Conflict');
-    console.log('PASS: 22. Duplicate generation prevention');
+    assert.equal(dupResJob.status, 409, 'Duplicate generation request with active job must be rejected with 409 Conflict');
+    console.log('PASS: 24. Duplicate generation prevention');
 
-    // 23. Failed Generation Persistence
-    assert.equal(malformedJobResult?.status, 'FAILED');
-    assert.ok(malformedJobResult?.error && malformedJobResult.error.length > 0, 'Error info is persisted');
-    console.log('PASS: 23. Failed generation persistence');
-
-    // 24. Retry Behavior
-    // After marking job FAILED, requesting generation again should succeed with 202
+    // 25. Retry After Failure Workflow
+    // Article is marked FAILED; calling generate sets status to GENERATING and returns 202
     await prisma.aiJob.update({ where: { id: inFlightJob.id }, data: { status: 'FAILED' } });
+    await prisma.article.update({ where: { id: article2Id }, data: { status: 'FAILED', topic: 'Valid Retry Topic' } });
     const retryRes = await request(app)
-      .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/generate`)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${article2Id}/generate`)
       .set(mockAuthHeaders);
     assert.equal(retryRes.status, 202, 'Retry generation request succeeds after previous failure');
+    const retryArticle = await prisma.article.findUnique({ where: { id: article2Id } });
+    assert.equal(retryArticle?.status, 'GENERATING', 'Article transitions back to GENERATING on retry');
     if (retryRes.body?.jobId) {
       await generateArticle(retryRes.body.jobId);
     }
-    console.log('PASS: 24. Retry behavior');
+    const finalRetriedArticle = await prisma.article.findUnique({ where: { id: article2Id } });
+    assert.equal(finalRetriedArticle?.status, 'DRAFT', 'Retried article transitions to DRAFT upon completion');
+    console.log('PASS: 25. Retry after failure workflow');
 
-    // 25. Published-State Behavior
-    // Transition article to APPROVED, then to PUBLISHED
+    // 26. Published Articles Cannot Be Regenerated or Incorrectly Mutated
     await prisma.article.update({ where: { id: articleId }, data: { status: 'APPROVED' } });
     const pubRes = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/transition`)
@@ -409,16 +492,23 @@ async function runAll25Tests() {
     assert.equal(pubRes.status, 200, 'Transition from APPROVED to PUBLISHED succeeds');
     assert.equal(pubRes.body.status, 'PUBLISHED');
 
-    // Attempting an invalid jump from PUBLISHED must be rejected
+    // Attempting to regenerate a published article must be rejected with 400
+    const blockRegenPubRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/generate`)
+      .set(mockAuthHeaders);
+    assert.equal(blockRegenPubRes.status, 400, 'Published articles cannot be regenerated');
+    assert.ok(blockRegenPubRes.body.error?.includes('already published'), 'Error must specify article is already published');
+
+    // Attempting an invalid transition jump from PUBLISHED must be rejected
     const badPubTrans = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/articles/${articleId}/transition`)
       .set(mockAuthHeaders)
       .send({ targetStatus: 'DRAFT' });
     assert.equal(badPubTrans.status, 400, 'Invalid transition out of PUBLISHED must be rejected');
-    console.log('PASS: 25. Published-state behavior');
+    console.log('PASS: 26. Published article protection & immutability');
 
     console.log('==================================================');
-    console.log('SUMMARY: 25 Passed, 0 Failed');
+    console.log('SUMMARY: 26 Passed, 0 Failed');
     console.log('==================================================');
   } finally {
     // Teardown test data

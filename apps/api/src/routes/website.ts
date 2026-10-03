@@ -2005,7 +2005,18 @@ router.post('/:id/articles/:articleId/generate', requireAuth, requireSubscriptio
       return;
     }
     
+    // Prevent regeneration of published articles
+    if (article.status === 'PUBLISHED') {
+      res.status(400).json({ error: 'Cannot regenerate an article that is already published' });
+      return;
+    }
+
     // Prevent duplicate generation job
+    if (article.status === 'GENERATING') {
+      res.status(409).json({ error: 'Article generation is already in progress' });
+      return;
+    }
+
     if (article.generationJobId) {
        const existingJob = await prisma.aiJob.findUnique({ where: { id: article.generationJobId } });
        if (existingJob && (existingJob.status === 'QUEUED' || existingJob.status === 'PROCESSING')) {
@@ -2025,12 +2036,15 @@ router.post('/:id/articles/:articleId/generate', requireAuth, requireSubscriptio
 
     await prisma.article.update({
       where: { id: article.id },
-      data: { generationJobId: job.id }
+      data: {
+        generationJobId: job.id,
+        status: 'GENERATING'
+      }
     });
 
     generateArticle(job.id).catch(e => console.error(e));
 
-    res.status(202).json({ jobId: job.id, status: 'QUEUED' });
+    res.status(202).json({ jobId: job.id, status: 'QUEUED', articleStatus: 'GENERATING' });
   } catch (err: any) {
     console.error('Generate Article error:', err);
     res.status(500).json({ error: 'Failed to start generation' });
@@ -2104,13 +2118,13 @@ router.post('/:id/articles/:articleId/transition', requireAuth, requireSubscript
       PLANNED: ['SCHEDULED', 'GENERATING', 'CANCELLED'],
       SCHEDULED: ['GENERATING', 'CANCELLED'],
       GENERATING: ['DRAFT', 'FAILED'],
-      IDEA: ['DRAFT', 'CANCELLED'],
+      IDEA: ['DRAFT', 'GENERATING', 'CANCELLED'],
       DRAFT: ['AI_REVIEW', 'USER_REVIEW', 'CANCELLED'],
       AI_REVIEW: ['USER_REVIEW'],
       USER_REVIEW: ['APPROVED', 'DRAFT'],
       APPROVED: ['PUBLISHED', 'USER_REVIEW'],
       PUBLISHED: [],
-      FAILED: ['GENERATING', 'CANCELLED'],
+      FAILED: ['GENERATING', 'CANCELLED', 'PLANNED'],
       CANCELLED: ['PLANNED']
     };
 

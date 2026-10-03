@@ -20,6 +20,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   const [editedMetaDesc, setEditedMetaDesc] = useState('');
   const [editedSlug, setEditedSlug] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // WordPress CMS state
   const [cmsConnections, setCmsConnections] = useState<any[]>([]);
@@ -85,10 +86,19 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
         console.warn('CMS connections check error:', connErr);
       }
 
+      // Check if article is in failed state
+      if (loadedArticle.status === 'FAILED' || loadedArticle.latestJob?.status === 'FAILED') {
+        const err = loadedArticle.latestJob?.error || loadedArticle.generationMetadata?.error || 'Article generation encountered an error. Please retry.';
+        setActionError(err);
+      } else if (loadedArticle.status === 'DRAFT' || loadedArticle.status === 'USER_REVIEW' || loadedArticle.status === 'APPROVED' || loadedArticle.status === 'PUBLISHED') {
+        setActionError(null);
+      }
+
       // If there is an active job, poll for completion
       if (
-        loadedArticle.latestJob &&
-        (loadedArticle.latestJob.status === 'QUEUED' || loadedArticle.latestJob.status === 'PROCESSING')
+        loadedArticle.status === 'GENERATING' ||
+        (loadedArticle.latestJob &&
+          (loadedArticle.latestJob.status === 'QUEUED' || loadedArticle.latestJob.status === 'PROCESSING'))
       ) {
         checkJobStatus(targetSite.id, loadedArticle, session.access_token);
       } else {
@@ -103,7 +113,6 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   };
 
   const checkJobStatus = async (websiteId: string, currentArticle: any, token: string) => {
-    const currentStatus = currentArticle.status;
     let attempts = 0;
     setIsProcessing(true);
 
@@ -117,10 +126,15 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
           const data = await res.json();
           const polledArt = data.article || data;
           
-          if (
-            polledArt.status !== currentStatus || 
-            (polledArt.latestJob && (polledArt.latestJob.status === 'COMPLETED' || polledArt.latestJob.status === 'FAILED'))
-          ) {
+          const isDone = 
+            polledArt.status === 'DRAFT' || 
+            polledArt.status === 'USER_REVIEW' ||
+            polledArt.status === 'FAILED' ||
+            polledArt.status === 'APPROVED' ||
+            polledArt.status === 'PUBLISHED' ||
+            (polledArt.latestJob && (polledArt.latestJob.status === 'COMPLETED' || polledArt.latestJob.status === 'FAILED'));
+
+          if (isDone) {
             clearInterval(poll);
             setArticle(polledArt);
             if (polledArt.content) setEditedContent(polledArt.content);
@@ -128,6 +142,13 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
             if (polledArt.metaDescription) setEditedMetaDesc(polledArt.metaDescription);
             if (polledArt.slug) setEditedSlug(polledArt.slug);
             setIsProcessing(false);
+
+            if (polledArt.status === 'FAILED' || polledArt.latestJob?.status === 'FAILED') {
+              const err = polledArt.latestJob?.error || polledArt.generationMetadata?.error || 'Article generation encountered an error. Please retry.';
+              setActionError(err);
+            } else {
+              setActionError(null);
+            }
           }
         }
       } catch (e) {
@@ -145,9 +166,18 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   }, [articleId]);
 
   const handleAction = async (action: 'generate' | 'review' | 'transition', payload?: any) => {
+    setActionError(null);
     setIsProcessing(true);
+    if (action === 'generate') {
+      setArticle((prev: any) => ({ ...prev, status: 'GENERATING' }));
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setActionError('You must be signed in to perform this action.');
+        setIsProcessing(false);
+        return;
+      }
       const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/articles/${articleId}/${action}`, {
         method: 'POST',
         headers: {
@@ -158,24 +188,32 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
       });
 
       if (res.ok) {
-        fetchWorkspaceData();
+        if (action === 'generate') {
+          checkJobStatus(activeWebsite.id, { ...article, status: 'GENERATING' }, session.access_token);
+        } else {
+          fetchWorkspaceData();
+        }
       } else {
-        const errData = await res.json();
-        alert(errData.error || errData.message || `Failed to ${action} article`);
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.error || errData.message || `Failed to ${action} article`;
+        setActionError(msg);
         setIsProcessing(false);
+        fetchWorkspaceData();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('An unexpected error occurred');
+      setActionError(err?.message || 'An unexpected error occurred. Please try again.');
       setIsProcessing(false);
     }
   };
 
-  
-
   const handlePublishArticle = async (postStatus: 'publish' | 'draft' = 'publish', overrideCmsId?: string) => {
+    setActionError(null);
     const targetCmsId = overrideCmsId || selectedCms;
-    if (!targetCmsId) return alert('Please select a CMS connection.');
+    if (!targetCmsId) {
+      setActionError('Please select a CMS connection.');
+      return;
+    }
     setIsPublishing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -187,22 +225,23 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
         },
         body: JSON.stringify({ postStatus, cmsConnectionId: targetCmsId }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to publish');
+        throw new Error(data.message || data.error || 'Failed to publish');
       }
-      setArticle((prev: any) => ({...prev, status: 'PUBLISHED'})); // Refresh happens on checkJobStatus or fetch
+      setArticle((prev: any) => ({...prev, status: 'PUBLISHED'}));
       setPublishSuccessMsg(`Successfully published! Remote ID: ${data.remoteId}`);
       setShowCmsModal(false);
       setTimeout(() => { setPublishSuccessMsg(null); fetchWorkspaceData(); }, 3000);
     } catch (err: any) {
-      alert(err.message || 'Error publishing');
+      setActionError(err.message || 'Error publishing article');
     } finally {
       setIsPublishing(false);
     }
   };
 
   const handleUpdateWordPressPost = async () => {
+    setActionError(null);
     setIsPublishing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -213,15 +252,15 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
           Authorization: `Bearer ${session?.access_token}`,
         },
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to update WordPress post');
+        throw new Error(data.message || data.error || 'Failed to update WordPress post');
       }
       setArticle(data.article);
       setPublishSuccessMsg('WordPress post updated successfully!');
       setTimeout(() => setPublishSuccessMsg(null), 5000);
     } catch (err: any) {
-      alert(err.message || 'Error updating WordPress post');
+      setActionError(err.message || 'Error updating WordPress post');
     } finally {
       setIsPublishing(false);
     }
@@ -400,21 +439,27 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
           )}
 
           {article.status === 'GENERATING' && (
-            <div style={{ padding: '12px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+            <div style={{ padding: '16px', background: 'var(--surface-sunken)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
               <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary)' }} />
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>AI is currently generating this article...</p>
+              <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>AI Generation In Progress</p>
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>Synthesizing content and semantic headings...</p>
             </div>
           )}
 
           {article.status === 'FAILED' && (
-            <button 
-              className={styles.primaryButton} 
-              disabled={isProcessing}
-              onClick={() => handleAction('generate')}
-              style={{ width: '100%' }}
-            >
-              <RefreshCw size={16} /> Retry Generation
-            </button>
+            <div>
+              <div style={{ padding: '10px 12px', background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 'var(--radius-sm)', color: '#cf1322', fontSize: '12px', marginBottom: '8px', lineHeight: 1.4 }}>
+                <strong>Generation Error:</strong> {actionError || article.latestJob?.error || article.generationMetadata?.error || 'Article generation failed.'}
+              </div>
+              <button 
+                className={styles.primaryButton} 
+                disabled={isProcessing}
+                onClick={() => handleAction('generate')}
+                style={{ width: '100%' }}
+              >
+                <RefreshCw size={16} /> Retry Generation
+              </button>
+            </div>
           )}
 
           {article.status === 'DRAFT' && (
@@ -604,6 +649,37 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
         </div>
       </div>
 
+      {actionError && (
+        <div style={{
+          padding: '12px 16px',
+          background: '#fff2f0',
+          border: '1px solid #ffccc7',
+          borderRadius: 'var(--radius-sm)',
+          color: '#cf1322',
+          fontSize: '13px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span><strong>Error:</strong> {actionError}</span>
+          </div>
+          {['FAILED', 'PLANNED', 'IDEA'].includes(article?.status) && (
+            <button
+              onClick={() => handleAction('generate')}
+              className={styles.secondaryButton}
+              style={{ padding: '4px 10px', fontSize: '12px', whiteSpace: 'nowrap' }}
+              disabled={isProcessing}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
       <div className={contentStyles.workspaceLayout}>
         <div className={contentStyles.mainPanel}>
           <div className={styles.card}>
@@ -633,13 +709,29 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
               </div>
             </div>
 
-            {isProcessing ? (
+            {isProcessing || article.status === 'GENERATING' ? (
               <div className={contentStyles.progressPoller}>
                 <div className={contentStyles.spinner}></div>
-                <h3 style={{ color: 'var(--text)', margin: '0 0 8px 0', fontSize: '18px' }}>AI Operation In Progress...</h3>
+                <h3 style={{ color: 'var(--text)', margin: '0 0 8px 0', fontSize: '18px' }}>AI Generation In Progress...</h3>
                 <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px' }}>
-                  Synthesizing search intent, content depth, and semantic NLP keywords.
+                  The AI engine is synthesizing search intent, content depth, semantic NLP keywords, and verified internal links. This typically takes 15–30 seconds.
                 </p>
+              </div>
+            ) : article.status === 'FAILED' && !article.content ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center', background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 'var(--radius-md)', margin: '16px 0' }}>
+                <AlertCircle size={36} style={{ color: '#cf1322', margin: '0 auto 12px' }} />
+                <h3 style={{ color: '#cf1322', margin: '0 0 8px 0', fontSize: '18px' }}>Article Generation Failed</h3>
+                <p style={{ color: '#595959', margin: '0 auto 16px', fontSize: '14px', maxWidth: '500px' }}>
+                  {actionError || article.latestJob?.error || article.generationMetadata?.error || 'Article generation encountered an error. Click below to retry.'}
+                </p>
+                <button
+                  onClick={() => handleAction('generate')}
+                  className={styles.primaryButton}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  disabled={isProcessing}
+                >
+                  <RefreshCw size={16} /> Retry Generation
+                </button>
               </div>
             ) : article.status === 'IDEA' ? (
               <div className={contentStyles.emptyState} style={{ marginTop: 0 }}>

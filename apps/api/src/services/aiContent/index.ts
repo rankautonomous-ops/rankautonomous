@@ -13,19 +13,33 @@ function countWords(str: string): number {
 function sanitizeErrorMessage(err: any): string {
   const raw = String(err?.message || 'Unknown generation error');
   // Strip potential API keys or sensitive query parameters
-  return raw.replace(/key=[a-zA-Z0-9_\-]+/gi, 'key=***').replace(/Bearer\s+[a-zA-Z0-9_\-\.]+/gi, 'Bearer ***');
+  return raw
+    .replace(/key=[a-zA-Z0-9_\-]+/gi, 'key=[REDACTED_API_KEY]')
+    .replace(/Bearer\s+[a-zA-Z0-9_\-\.]+/gi, 'Bearer [REDACTED_TOKEN]')
+    .replace(/AIza[0-9A-Za-z\-_]{30,}/gi, '[REDACTED_API_KEY]')
+    .replace(/sk-[a-zA-Z0-9_\-]{20,}/gi, '[REDACTED_API_KEY]');
 }
 
 export async function generateArticle(jobId: string): Promise<void> {
+  let targetArticleId: string | null = null;
   try {
     const job = await prisma.aiJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error('AiJob not found');
 
     const articleId = (job.payload as any)?.articleId;
     if (!articleId) throw new Error('AiJob missing articleId in payload');
+    targetArticleId = articleId;
 
     const article = await prisma.article.findUnique({ where: { id: articleId } });
     if (!article) throw new Error('Article not found');
+
+    await prisma.article.update({
+      where: { id: articleId },
+      data: {
+        status: 'GENERATING',
+        generationJobId: jobId
+      }
+    });
 
     await prisma.aiJob.update({
       where: { id: jobId },
@@ -139,6 +153,24 @@ export async function generateArticle(jobId: string): Promise<void> {
         error: safeErr
       }
     });
+
+    if (targetArticleId) {
+      try {
+        await prisma.article.update({
+          where: { id: targetArticleId },
+          data: {
+            status: 'FAILED',
+            generationJobId: jobId,
+            generationMetadata: {
+              failedAt: new Date().toISOString(),
+              error: safeErr
+            }
+          }
+        });
+      } catch (articleErr) {
+        console.error(`[AI Content] Could not update article ${targetArticleId} to FAILED:`, articleErr);
+      }
+    }
   }
 }
 

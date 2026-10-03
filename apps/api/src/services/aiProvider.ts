@@ -146,20 +146,8 @@ export class GeminiProvider implements IAiProvider {
 
   private getModel(): string {
     loadEnvironment(true);
-    let model = (process.env.AI_MODEL_PREFERENCE || 'gemini-3.6-flash').trim();
-    // Map deprecated or legacy model names to active Gemini 3.6 Flash
-    if (
-      !model ||
-      model.startsWith('gpt-') ||
-      model === 'gemini-2.0-flash' ||
-      model === 'gemini-1.5-flash' ||
-      model === 'gemini-1.5-pro' ||
-      model === 'gemini-pro' ||
-      model === 'gemini-flash'
-    ) {
-      model = 'gemini-3.6-flash';
-    }
-    return model;
+    const model = (process.env.AI_MODEL_PREFERENCE || 'gemini-3-flash-preview').trim();
+    return model || 'gemini-3-flash-preview';
   }
 
   async generateCompletion(options: AiCompletionOptions): Promise<string> {
@@ -214,10 +202,14 @@ export class GeminiProvider implements IAiProvider {
     try {
       let response = await executeCall(model);
 
-      // Auto-fallback: If Google returns 404 for a model, fallback to gemini-3.6-flash or gemini-3.5-flash
-      if (response.status === 404 && model !== 'gemini-3.6-flash') {
-        console.warn(`[Gemini Provider] Model ${model} returned 404. Automatically retrying with gemini-3.6-flash.`);
-        response = await executeCall('gemini-3.6-flash');
+      // Auto-fallback: If Google returns 404 or 503 for a model, attempt supported fallbacks
+      if ((response.status === 404 || response.status === 503) && model !== 'gemini-3-flash-preview') {
+        console.warn(`[Gemini Provider] Model ${model} returned ${response.status}. Automatically retrying with gemini-3-flash-preview.`);
+        response = await executeCall('gemini-3-flash-preview');
+      }
+      if ((response.status === 404 || response.status === 503) && model !== 'gemini-3.1-flash-lite') {
+        console.warn(`[Gemini Provider] Model returned ${response.status}. Automatically retrying with gemini-3.1-flash-lite.`);
+        response = await executeCall('gemini-3.1-flash-lite');
       }
 
       if (!response.ok) {
