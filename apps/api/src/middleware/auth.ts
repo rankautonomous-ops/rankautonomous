@@ -37,6 +37,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !authData?.user) {
+      console.error('[Auth Error]: Token verification failed:', authError?.message || 'No user returned from Supabase Auth');
       res.status(401).json({
         error: 'Unauthorized',
         message: 'Invalid, expired, or revoked authentication token.',

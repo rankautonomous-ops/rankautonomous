@@ -20,6 +20,10 @@ services:
     buildCommand: npm install && npm run build --workspace=@rankautonomous/api
     startCommand: npm run start:api
     envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL
@@ -44,6 +48,10 @@ services:
     buildCommand: npm install && npm run build --workspace=@rankautonomous/api
     startCommand: npm run start:worker
     envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL
