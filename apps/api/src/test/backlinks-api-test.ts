@@ -5,6 +5,7 @@ import app from '../index';
 import prisma from '../lib/database';
 import supabase from '../lib/supabase';
 import { OpportunityStatus } from '@prisma/client';
+import { setAiProvider } from '../services/aiProvider';
 
 const MOCK_USER_ID = 'test-backlink-user';
 const MOCK_AUTH_ID = 'auth-backlink-user';
@@ -35,6 +36,7 @@ const otherAuthHeaders = {
 };
 
 async function setupTestData() {
+  await prisma.backlinkCampaign.deleteMany({ where: { websiteId: { in: [MOCK_WEBSITE_ID, OTHER_WEBSITE_ID] } } });
   await prisma.backlinkOpportunity.deleteMany({ where: { websiteId: { in: [MOCK_WEBSITE_ID, OTHER_WEBSITE_ID] } } });
   await prisma.backlink.deleteMany({ where: { websiteId: { in: [MOCK_WEBSITE_ID, OTHER_WEBSITE_ID] } } });
   await prisma.website.deleteMany({ where: { id: { in: [MOCK_WEBSITE_ID, OTHER_WEBSITE_ID] } } });
@@ -74,6 +76,16 @@ async function runTests() {
   setupAuthMocks();
   await setupTestData();
 
+  setAiProvider({
+    generateCompletion: async () => JSON.stringify({
+      candidates: [
+        { url: 'https://discovered.com/post', domain: 'discovered.com', relevance: 85, reason: 'Great fit', type: 'GUEST_POST', valid: true }
+      ],
+      subject: 'Partnership Opportunity',
+      message: 'Hello, would love to connect and partner.'
+    })
+  });
+
   let passed = 0;
   let failed = 0;
   let oppId: string;
@@ -94,9 +106,33 @@ async function runTests() {
   }
 
   try {
-    // 1. Unauthenticated requests rejected
-    const unauthRes = await request(app).get(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`);
-    assert(unauthRes.status === 401, 'Test 1: Unauthenticated requests rejected (401)');
+    // 1. Unauthenticated requests rejected across all backlink routes
+    const unauthOppGet = await request(app).get(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`);
+    assert(unauthOppGet.status === 401, 'Test 1a: Unauthenticated GET opportunities rejected (401)');
+
+    const unauthOppPost = await request(app).post(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`).send({ domain: 'test.com', type: 'GUEST_POST' });
+    assert(unauthOppPost.status === 401, 'Test 1b: Unauthenticated POST opportunities rejected (401)');
+
+    const emptyTokenRes = await request(app).get(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`).set({ 'Authorization': 'Bearer ' });
+    assert(emptyTokenRes.status === 401, 'Test 1c: Empty Bearer token rejected (401)');
+
+    const unauthBlGet = await request(app).get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks`);
+    assert(unauthBlGet.status === 401, 'Test 1d: Unauthenticated GET backlinks rejected (401)');
+
+    const unauthBlPost = await request(app).post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks`).send({ sourceUrl: 'https://test.com', targetUrl: 'https://mock.com', referringDomain: 'test.com' });
+    assert(unauthBlPost.status === 401, 'Test 1e: Unauthenticated POST backlinks rejected (401)');
+
+    const unauthDisc = await request(app).post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/discover`).send({ topic: 'tech' });
+    assert(unauthDisc.status === 401, 'Test 1f: Unauthenticated POST discover rejected (401)');
+
+    const unauthCampGet = await request(app).get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns`);
+    assert(unauthCampGet.status === 401, 'Test 1g: Unauthenticated GET campaigns rejected (401)');
+
+    const unauthCampPost = await request(app).post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns`).send({ opportunityId: 'some-id' });
+    assert(unauthCampPost.status === 401, 'Test 1h: Unauthenticated POST campaigns rejected (401)');
+
+    const unauthJobPoll = await request(app).get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/fake-id/verification-job`);
+    assert(unauthJobPoll.status === 401, 'Test 1i: Unauthenticated GET verification-job rejected (401)');
 
     // 2. Setup other's opportunities for isolation test
     const otherOppRes = await request(app)
@@ -111,7 +147,7 @@ async function runTests() {
       .send({ sourceUrl: 'https://other-domain.com/blog', targetUrl: 'https://other.com', referringDomain: 'other-domain.com' });
     otherBacklinkId = otherBlRes.body.id;
 
-    // 3. Create opportunity
+    // 3. Create opportunity (Authenticated)
     const createOppRes = await request(app)
       .post(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`)
       .set(mockAuthHeaders)
@@ -126,7 +162,7 @@ async function runTests() {
     assert(createOppRes.status === 201 && createOppRes.body.status === 'DISCOVERED' && createOppRes.body.url === 'https://example.com/post', 'Test 3: Create opportunity validates and normalizes URL', createOppRes);
     oppId = createOppRes.body.id;
 
-    // 4. List opportunities
+    // 4. List opportunities (Authenticated)
     const listOppRes = await request(app)
       .get(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`)
       .set(mockAuthHeaders);
@@ -290,7 +326,6 @@ async function runTests() {
     assert(vUnauthRes.status === 401, 'Test V1: Unauthenticated verification request rejected');
 
     // C. Unsubscribed user is rejected
-    // To test unsubscribed, we can delete the subscription and attempt
     await prisma.subscription.deleteMany({ where: { userId: MOCK_USER_ID } });
     const vUnsubRes = await request(app).post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/${vBlId}/verify`).set(mockAuthHeaders);
     assert(vUnsubRes.status === 403, 'Test V2: Unsubscribed verification request rejected');
@@ -351,7 +386,70 @@ async function runTests() {
 
     // G. Malformed IDs are handled safely
     const vMalformedRes = await request(app).post(`/api/websites/not-uuid/backlinks/not-uuid/verify`).set(mockAuthHeaders);
-    assert(vMalformedRes.status === 404 || vMalformedRes.status === 400, 'Test V15: Malformed IDs rejected safely');  } catch (error) {
+    assert(vMalformedRes.status === 404 || vMalformedRes.status === 400, 'Test V15: Malformed IDs rejected safely');
+
+    // ============================================================================
+    // DISCOVERY, QUALIFY, CAMPAIGN & VERIFICATION-JOB AUTHENTICATED TESTS
+    // ============================================================================
+
+    // Test C1: Authenticated backlink discovery succeeds
+    const discRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/discover`)
+      .set(mockAuthHeaders)
+      .send({ topic: 'SaaS SEO' });
+    assert(discRes.status === 200 && Array.isArray(discRes.body.candidates), 'Test C1: Authenticated backlink discovery succeeds (200)');
+
+    // Create an opportunity specifically for qualification and campaign tests
+    const oppForCampRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities`)
+      .set(mockAuthHeaders)
+      .send({ domain: 'outreach-target.com', url: 'https://outreach-target.com/resources', type: 'RESOURCE_PAGE' });
+    const oppForCampId = oppForCampRes.body.id;
+
+    // Test C2: Authenticated qualify opportunity succeeds
+    const qualifyRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities/${oppForCampId}/qualify`)
+      .set(mockAuthHeaders);
+    assert(qualifyRes.status === 200 && qualifyRes.body.id === oppForCampId, 'Test C2: Authenticated qualify opportunity succeeds (200)');
+
+    // Test C3: Authenticated create outreach campaign succeeds
+    const createCampRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns`)
+      .set(mockAuthHeaders)
+      .send({ opportunityId: oppForCampId });
+    assert(createCampRes.status === 201 && createCampRes.body.opportunityId === oppForCampId, 'Test C3: Authenticated create outreach campaign succeeds (201)');
+    const campaignId = createCampRes.body.id;
+
+    // Test C4: Authenticated list outreach campaigns succeeds
+    const listCampRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns`)
+      .set(mockAuthHeaders);
+    assert(listCampRes.status === 200 && Array.isArray(listCampRes.body.data) && listCampRes.body.data.some((c: any) => c.id === campaignId), 'Test C4: Authenticated list campaigns succeeds (200)');
+
+    // Test C5: Authenticated update campaign status succeeds
+    const updateCampStatusRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns/${campaignId}/status`)
+      .set(mockAuthHeaders)
+      .send({ status: 'CONTACTED' });
+    assert(updateCampStatusRes.status === 200 && updateCampStatusRes.body.status === 'CONTACTED', 'Test C5: Authenticated update campaign status succeeds (200)');
+
+    // Test C6: Authenticated generate AI message succeeds
+    const genMsgRes = await request(app)
+      .post(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns/${campaignId}/generate-message`)
+      .set(mockAuthHeaders);
+    assert(genMsgRes.status === 200 && genMsgRes.body.id === campaignId, 'Test C6: Authenticated generate AI message succeeds (200)');
+
+    // Test C7: Authenticated verification job polling succeeds
+    const jobPollRes = await request(app)
+      .get(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/${vBlId}/verification-job`)
+      .set(mockAuthHeaders);
+    assert(jobPollRes.status === 200 && jobPollRes.body.backlink?.id === vBlId, 'Test C7: Authenticated verification job polling succeeds (200)');
+
+    // Clean up campaign & opportunity
+    await request(app).delete(`/api/websites/${MOCK_WEBSITE_ID}/backlinks/campaigns/${campaignId}`).set(mockAuthHeaders);
+    await request(app).delete(`/api/websites/${MOCK_WEBSITE_ID}/backlink-opportunities/${oppForCampId}`).set(mockAuthHeaders);
+
+  } catch (error) {
     console.error('Unhandled test failure', error);
   } finally {
     console.log(`\n==================================================`);

@@ -4,8 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import styles from './backlinks.module.css';
-import { createClient } from '../../../lib/supabase/client';
-import { getApiUrl } from '../../../lib/api';
 import CampaignsView from './CampaignsView';
 import DiscoveryModal from './DiscoveryModal';
 import { apiFetch } from '../../../lib/api';
@@ -80,7 +78,6 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
   const [showAddOpp, setShowAddOpp] = useState(false);
   const [showAddBacklink, setShowAddBacklink] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
-  const [accessToken, setAccessToken] = useState('');
   const [transitionTarget, setTransitionTarget] = useState<{ opp: BacklinkOpportunity, status: OpportunityStatus } | null>(null);
 
   // Form states
@@ -89,9 +86,6 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
   const [linkAcquiredForm, setLinkAcquiredForm] = useState({ sourceUrl: '', targetUrl: '' });
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const supabase = createClient();
-  const apiUrl = getApiUrl();
 
   useEffect(() => {
     if (!initialWebsite) {
@@ -102,15 +96,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
   const fetchActiveWebsite = async () => {
     setLoadingWebsite(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!accessToken) {
-        setLoadingWebsite(false);
-        return;
-      }
-
-      const res = await apiFetch(`${apiUrl}/api/websites/active`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
+      const res = await apiFetch('/api/websites/active');
       if (res.ok) {
         const json = await res.json();
         setActiveWebsite(json.website || null);
@@ -131,27 +117,28 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
   }, [activeWebsite?.id, activeTab]);
 
   const fetchData = async () => {
+    if (!activeWebsite?.id) return;
     setLoading(true);
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!accessToken) throw new Error('Not authenticated');
-      setAccessToken(session?.access_token || '');
-
       if (activeTab === 'opportunities') {
-        const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities?limit=100`, {
-          headers: { Authorization: `Bearer ${session?.access_token}` },
+        const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities?limit=100`, {
           cache: 'no-store'
         });
-        if (!res.ok) throw new Error('Failed to fetch opportunities');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'Failed to fetch opportunities');
+        }
         const json = await res.json();
         setOpportunities(json.data || []);
-      } else {
-        const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks?limit=100`, {
-          headers: { Authorization: `Bearer ${session?.access_token}` },
+      } else if (activeTab === 'backlinks') {
+        const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlinks?limit=100`, {
           cache: 'no-store'
         });
-        if (!res.ok) throw new Error('Failed to fetch backlinks');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'Failed to fetch backlinks');
+        }
         const json = await res.json();
         setBacklinks(json.data || []);
       }
@@ -168,8 +155,6 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
     setSaving(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const payload: any = {
         domain: oppForm.domain,
         type: oppForm.type,
@@ -178,17 +163,16 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       if (oppForm.relevance) payload.relevance = parseInt(oppForm.relevance, 10);
       if (oppForm.domainAuthority) payload.domainAuthority = parseInt(oppForm.domainAuthority, 10);
 
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}` 
         },
         body: JSON.stringify(payload)
       });
       
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to add opportunity');
       }
       
@@ -208,8 +192,6 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
     setSaving(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const payload: any = {
         sourceUrl: blForm.sourceUrl,
         targetUrl: blForm.targetUrl,
@@ -217,17 +199,16 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       };
       if (blForm.anchorText) payload.anchorText = blForm.anchorText;
 
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlinks`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}` 
         },
         body: JSON.stringify(payload)
       });
       
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to add backlink');
       }
       
@@ -245,16 +226,14 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
     if (verifyingBacklinks[backlink.id]) return;
     setVerifyingBacklinks(prev => ({ ...prev, [backlink.id]: { status: 'Queueing...' } }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${backlink.id}/verify`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlinks/${backlink.id}/verify`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.status === 401) throw new Error('Session expired / login required.');
       if (res.status === 403) throw new Error('Subscription required.');
       if (res.status === 404) throw new Error('Backlink no longer exists.');
       
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || json.error || 'Failed to queue verification');
       
       setVerifyingBacklinks(prev => ({ ...prev, [backlink.id]: { status: 'Queued', jobId: json.jobId } }));
@@ -286,10 +265,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       }
       
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${backlinkId}/verification-job`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
+        const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlinks/${backlinkId}/verification-job`);
         if (!res.ok) return;
         
         const json = await res.json();
@@ -333,25 +309,23 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
 
   const executeStatusChange = async (id: string, status: OpportunityStatus, targetUrl?: string, sourceUrl?: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const payload: any = { status };
       if (status === 'LINK_ACQUIRED' && targetUrl && sourceUrl) {
         payload.targetUrl = targetUrl;
         payload.sourceUrl = sourceUrl;
       }
 
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${id}/status`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities/${id}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}` 
         },
         body: JSON.stringify(payload)
       });
       
       if (!res.ok) {
-        const err = await res.json();
-        alert(`Error: ${err.message}`);
+        const err = await res.json().catch(() => ({}));
+        alert(`Error: ${err.message || 'Failed to update status'}`);
         return;
       }
       
@@ -365,10 +339,8 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
   const handleDeleteOpp = async (id: string) => {
     if (!confirm('Are you sure you want to delete this opportunity?')) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${id}`, {
+      await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       fetchData();
     } catch (e) {}
@@ -377,10 +349,8 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
   const handleDeleteBacklink = async (id: string) => {
     if (!confirm('Are you sure you want to delete this backlink?')) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/${id}`, {
+      await apiFetch(`/api/websites/${activeWebsite.id}/backlinks/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` }
       });
       fetchData();
     } catch (e) {}
@@ -454,131 +424,151 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Backlinks Pipeline</h1>
         <p className={styles.pageSubtitle}>
-          Track backlink opportunities and acquired links for {activeWebsite.name || activeWebsite.url}.
+          Track outreach opportunities, manage link pipeline, and monitor live backlink statuses.
         </p>
       </div>
 
-      <div className={styles.metricsRow}>
-        <div className={styles.metricCard}>
-          <div className={styles.metricValue}>{totalOpps}</div>
-          <div className={styles.metricLabel}>Total Opportunities</div>
+      {/* KPI Cards */}
+      <div className={styles.kpiGrid}>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiValue}>{totalOpps}</div>
+          <div className={styles.kpiLabel}>Total Opportunities</div>
         </div>
-        <div className={styles.metricCard}>
-          <div className={styles.metricValue}>{readyToContact}</div>
-          <div className={styles.metricLabel}>Ready to Contact</div>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiValue}>{readyToContact}</div>
+          <div className={styles.kpiLabel}>Ready for Outreach</div>
         </div>
-        <div className={styles.metricCard}>
-          <div className={styles.metricValue}>{linkAcquiredCount}</div>
-          <div className={styles.metricLabel}>Link Acquired</div>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiValue}>{linkAcquiredCount}</div>
+          <div className={styles.kpiLabel}>Links Acquired</div>
         </div>
-        <div className={styles.metricCard}>
-          <div className={styles.metricValue}>{activeTab === 'backlinks' ? activeBacklinksCount : backlinks.length}</div>
-          <div className={styles.metricLabel}>Active Backlinks</div>
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiValue}>{activeBacklinksCount}</div>
+          <div className={styles.kpiLabel}>Active Backlinks</div>
         </div>
       </div>
 
-      <div className={styles.tabs}>
-        <button 
-          className={`${styles.tab} ${activeTab === 'opportunities' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('opportunities')}
-        >
-          Opportunities
-        </button>
-        <button 
-          className={`${styles.tab} ${activeTab === 'campaigns' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('campaigns')}
-        >
-          Campaigns
-        </button>
-        <button 
-          className={`${styles.tab} ${activeTab === 'backlinks' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('backlinks')}
-        >
-          Acquired Backlinks
-        </button>
-      </div>
-
-      <div className={styles.topBar}>
-        <div className={styles.filtersRow}>
-          {/* Future implementation: filters */}
+      {/* Controls Bar */}
+      <div className={styles.controlsBar}>
+        <div className={styles.tabGroup}>
+          <button
+            className={`${styles.tabButton} ${activeTab === 'opportunities' ? styles.tabButtonActive : ''}`}
+            onClick={() => setActiveTab('opportunities')}
+          >
+            Opportunities
+          </button>
+          <button
+            className={`${styles.tabButton} ${activeTab === 'campaigns' ? styles.tabButtonActive : ''}`}
+            onClick={() => setActiveTab('campaigns')}
+          >
+            Outreach Campaigns
+          </button>
+          <button
+            className={`${styles.tabButton} ${activeTab === 'backlinks' ? styles.tabButtonActive : ''}`}
+            onClick={() => setActiveTab('backlinks')}
+          >
+            Acquired Backlinks
+          </button>
         </div>
-        <div className={styles.actionControls}>
+
+        <div className={styles.actionButtonGroup}>
           {activeTab === 'opportunities' ? (
             <>
-              <button className={styles.secondaryButton} onClick={() => setShowDiscover(true)}>Discover Opportunities</button>
-              <button className={styles.primaryButton} onClick={() => setShowAddOpp(true)}>+ Add Opportunity</button>
+              <button className={styles.secondaryButton} onClick={() => setShowDiscover(true)}>
+                ✨ Discover AI Opportunities
+              </button>
+              <button className={styles.primaryButton} onClick={() => setShowAddOpp(true)}>
+                + Add Opportunity
+              </button>
             </>
-          ) : activeTab === 'campaigns' ? null : (
-            <button className={styles.primaryButton} onClick={() => setShowAddBacklink(true)}>+ Add Backlink</button>
-          )}
+          ) : activeTab === 'backlinks' ? (
+            <button className={styles.primaryButton} onClick={() => setShowAddBacklink(true)}>
+              + Add Backlink
+            </button>
+          ) : null}
         </div>
       </div>
 
       {error && <div className={styles.errorMessage}>{error}</div>}
 
+      {/* Content Area */}
       {loading ? (
-        <div className={styles.emptyState}>Loading...</div>
+        <div className={styles.emptyState}>
+          <Loader2 className={styles.spinner} />
+          <div style={{ marginTop: '12px' }}>Loading pipeline...</div>
+        </div>
       ) : activeTab === 'opportunities' ? (
         opportunities.length === 0 ? (
           <div className={styles.emptyState}>
-            <div className={styles.emptyStateTitle}>No backlink opportunities yet.</div>
+            <div className={styles.emptyStateTitle}>No opportunities found</div>
             <div className={styles.emptyStateDesc}>
-              You can manually add prospects now. Automated discovery will be available when a supported data provider is configured.
+              Start discovering backlink prospects automatically or add your own manually.
             </div>
-            <button className={styles.primaryButton} onClick={() => setShowAddOpp(true)}>+ Add Opportunity</button>
+            <button className={styles.primaryButton} onClick={() => setShowDiscover(true)}>
+              Discover Opportunities
+            </button>
           </div>
         ) : (
           <div className={styles.kanbanBoard}>
-            {KANBAN_COLUMNS.map(status => {
-              const colOpps = opportunities.filter(o => o.status === status);
+            {KANBAN_COLUMNS.map(column => {
+              const columnOpps = opportunities.filter(o => o.status === column);
               return (
-                <div key={status} className={styles.kanbanColumn}>
-                  <div className={styles.kanbanColumnHeader}>
-                    <span className={styles.kanbanColumnTitle}>{STATUS_LABELS[status]}</span>
-                    <span className={styles.kanbanCardCount}>{colOpps.length}</span>
+                <div key={column} className={styles.kanbanColumn}>
+                  <div className={styles.columnHeader}>
+                    <span className={styles.columnTitle}>{STATUS_LABELS[column]}</span>
+                    <span className={styles.columnCount}>{columnOpps.length}</span>
                   </div>
-                  {colOpps.map(opp => (
-                      <div key={opp.id} className={styles.kanbanCard}>
-                        <div className={styles.cardDomain}>{opp.domain}</div>
-                        <div className={styles.cardType}>{opp.type.replace(/_/g, ' ')}</div>
-                        <div style={{ fontSize: 12, marginBottom: 8, color: '#5f5b58' }}>
-                          Score: {opp.relevance !== null ? opp.relevance : 'Not available'}
-                        </div>
-                        
-                        <div className={styles.cardActions}>
-                          <select 
-                            className={styles.statusSelect}
-                            value=""
-                            onChange={(e) => handleStatusChange(opp, e.target.value as OpportunityStatus)}
-                          >
-                            <option value="" disabled>Move to...</option>
-                            {VALID_TRANSITIONS[opp.status]?.map(s => (
-                              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                            ))}
-                          </select>
-                          <button 
-                            className={styles.secondaryButton} 
-                            style={{marginTop: 4, width: '100%', fontSize: 11, padding: '4px'}}
-                            onClick={async () => {
-                              if(opp.status === 'DISCOVERED') {
-                                await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities/${opp.id}/qualify`, {
-                                  method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }
-                                });
-                                fetchData();
-                              } else {
-                                await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlinks/campaigns`, {
-                                  method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ opportunityId: opp.id })
-                                });
-                                setActiveTab('campaigns');
-                              }
-                            }}
-                          >
-                            {opp.status === 'DISCOVERED' ? 'Qualify' : 'Start Campaign'}
-                          </button>
-                          <button className={`${styles.actionLink} ${styles.dangerLink}`} onClick={() => handleDeleteOpp(opp.id)}>Del</button>
-                        </div>
+                  {columnOpps.map(opp => (
+                    <div key={opp.id} className={styles.oppCard}>
+                      <div className={styles.oppCardDomain}>
+                        {opp.url ? (
+                          <a href={opp.url} target="_blank" rel="noreferrer" style={{color: 'inherit', textDecoration: 'underline'}}>
+                            {opp.domain}
+                          </a>
+                        ) : opp.domain}
                       </div>
+                      <div className={styles.oppCardType}>{opp.type}</div>
+                      
+                      <div className={styles.oppCardMetrics}>
+                        <span>DA: <strong>{opp.domainAuthority !== null ? opp.domainAuthority : 'N/A'}</strong></span>
+                        <span>Rel: <strong>{opp.relevance !== null ? opp.relevance : 'N/A'}</strong></span>
+                      </div>
+
+                      <div className={styles.oppCardActions}>
+                        <select 
+                          className={styles.statusSelect}
+                          value=""
+                          onChange={(e) => handleStatusChange(opp, e.target.value as OpportunityStatus)}
+                        >
+                          <option value="" disabled>Move to...</option>
+                          {VALID_TRANSITIONS[opp.status]?.map(s => (
+                            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                          ))}
+                        </select>
+                        <button 
+                          className={styles.secondaryButton} 
+                          style={{marginTop: 4, width: '100%', fontSize: 11, padding: '4px'}}
+                          onClick={async () => {
+                            if (opp.status === 'DISCOVERED') {
+                              await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities/${opp.id}/qualify`, {
+                                method: 'POST'
+                              });
+                              fetchData();
+                            } else {
+                              await apiFetch(`/api/websites/${activeWebsite.id}/backlinks/campaigns`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ opportunityId: opp.id })
+                              });
+                              setActiveTab('campaigns');
+                            }
+                          }}
+                        >
+                          {opp.status === 'DISCOVERED' ? 'Qualify' : 'Start Campaign'}
+                        </button>
+                        <button className={`${styles.actionLink} ${styles.dangerLink}`} onClick={() => handleDeleteOpp(opp.id)}>Del</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               );
@@ -586,7 +576,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
           </div>
         )
       ) : activeTab === 'campaigns' ? (
-        <CampaignsView websiteId={activeWebsite.id} accessToken={accessToken || ''} apiUrl={apiUrl} />
+        <CampaignsView websiteId={activeWebsite.id} />
       ) : (
         backlinks.length === 0 ? (
           <div className={styles.emptyState}>
@@ -794,18 +784,17 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
           </div>
         </div>
       )}
+
       {showDiscover && (
         <DiscoveryModal 
           websiteId={activeWebsite.id}
-          accessToken={accessToken || ''}
-          apiUrl={apiUrl}
           onClose={() => setShowDiscover(false)}
           onDiscover={async (candidates) => {
             // Save each as an opportunity
             for (const c of candidates) {
-              await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/backlink-opportunities`, {
+              await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ domain: c.domain, url: c.url, type: c.type, relevance: c.relevance })
               });
             }

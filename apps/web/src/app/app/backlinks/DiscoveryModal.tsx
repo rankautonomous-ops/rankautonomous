@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import styles from './backlinks.module.css';
 import { apiFetch } from '../../../lib/api';
 
 interface DiscoveryModalProps {
   websiteId: string;
-  accessToken: string;
-  apiUrl: string;
+  accessToken?: string;
+  apiUrl?: string;
   onClose: () => void;
   onDiscover: (candidates: any[]) => void;
 }
 
-export default function DiscoveryModal({ websiteId, accessToken, apiUrl, onClose, onDiscover }: DiscoveryModalProps) {
+export default function DiscoveryModal({ websiteId, onClose, onDiscover }: DiscoveryModalProps) {
   const [loading, setLoading] = useState(false);
   const [topic, setTopic] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -24,11 +24,10 @@ export default function DiscoveryModal({ websiteId, accessToken, apiUrl, onClose
     setLoading(true);
     setError('');
     try {
-      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/discover`, {
+      const res = await apiFetch(`/api/websites/${websiteId}/backlinks/discover`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ topic, keyword, competitor }),
       });

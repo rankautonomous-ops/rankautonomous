@@ -7,11 +7,11 @@ import { apiFetch } from '../../../lib/api';
 
 interface CampaignsViewProps {
   websiteId: string;
-  accessToken: string;
-  apiUrl: string;
+  accessToken?: string;
+  apiUrl?: string;
 }
 
-export default function CampaignsView({ websiteId, accessToken, apiUrl }: CampaignsViewProps) {
+export default function CampaignsView({ websiteId }: CampaignsViewProps) {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,9 +19,7 @@ export default function CampaignsView({ websiteId, accessToken, apiUrl }: Campai
 
   const fetchCampaigns = async () => {
     try {
-      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await apiFetch(`/api/websites/${websiteId}/backlinks/campaigns`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to fetch campaigns');
       setCampaigns(data.data || []);
@@ -38,11 +36,10 @@ export default function CampaignsView({ websiteId, accessToken, apiUrl }: Campai
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns/${id}/status`, {
+      const res = await apiFetch(`/api/websites/${websiteId}/backlinks/campaigns/${id}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ status }),
       });
@@ -55,9 +52,8 @@ export default function CampaignsView({ websiteId, accessToken, apiUrl }: Campai
   const generateMessage = async (id: string) => {
     setGeneratingFor(id);
     try {
-      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/backlinks/campaigns/${id}/generate-message`, {
+      const res = await apiFetch(`/api/websites/${websiteId}/backlinks/campaigns/${id}/generate-message`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (res.ok) fetchCampaigns();
     } catch (err) {
