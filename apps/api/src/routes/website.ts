@@ -1769,22 +1769,28 @@ router.post(
       }
 
       try {
-        const enriched = await enrichKeywordsData(id, keywordIds);
-        res.json({ keywords: enriched });
+        const result = await enrichKeywordsData(id, keywordIds);
+        res.json({
+          keywords: result.keywords,
+          providerConfigured: result.providerConfigured,
+          gscConnected: result.gscConnected,
+          enrichedCount: result.enrichedCount,
+          message: result.message
+        });
       } catch (innerErr: any) {
         if (innerErr.message === 'NOT_CONFIGURED') {
           res.status(503).json({ 
             error: 'Service Unavailable', 
             status: 'NOT_CONFIGURED',
-            message: 'No external keyword data provider is configured.'
+            message: 'No external keyword data provider is configured. Connect Google Search Console or configure a supported metrics provider to enrich keyword data.'
           });
           return;
         }
         throw innerErr;
       }
-    } catch (err) {
-      console.error('[Websites POST Keywords Research Error]:', err);
-      res.status(500).json({ error: 'Internal Server Error' });
+    } catch (err: any) {
+      console.error(`[Websites POST Keywords Research Error] Website ${req.params?.id}:`, err?.message || err);
+      res.status(500).json({ error: 'Internal Server Error', message: 'Failed to enrich keyword metrics. Please try again later.' });
     }
   }
 );

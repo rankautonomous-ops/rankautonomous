@@ -201,13 +201,14 @@ export async function runTests() {
     // 19. unclustered keyword handling
     assert(clusterMap['it'] === null, 'Test 19: Short, isolated word is unclustered (null)');
 
-    // 20. provider not configured (now we fall back to GSC, but if no GSC it might just return empty enrichment or 200)
-    // Wait, since we removed the throw error when provider is missing, it now returns 200 but just with GSC if any.
-    // Let's test the endpoint doesn't fail.
+    // 20. provider not configured (now we fall back to GSC, but if no GSC it returns empty enrichment with informative status)
     setKeywordResearchProvider(null as any);
     const kwTest = await prisma.keyword.findFirst({ where: { websiteId: website1.id, status: 'ACTIVE' }});
     const resNoProv = await dispatchRoute('POST', `/${website1.id}/keywords/research`, { keywordIds: [kwTest!.id] }, authUser);
     assert(resNoProv.getStatus() === 200, 'Test 20: Missing provider fallback returns 200 instead of 503');
+    assert(resNoProv.getData().providerConfigured === false, 'Test 20b: Correctly reports providerConfigured as false');
+    assert(typeof resNoProv.getData().message === 'string' && resNoProv.getData().message.includes('No keyword metrics provider is connected'), 'Test 20c: Informs user that no metrics provider is connected');
+    assert(resNoProv.getData().enrichedCount === 0, 'Test 20d: Enriched count is 0 without faking metrics');
 
     // 21. provider enrichment with mocked provider
     const mockProvider = new MockKeywordProvider();
@@ -215,13 +216,20 @@ export async function runTests() {
     const resEnrich = await dispatchRoute('POST', `/${website1.id}/keywords/research`, { keywordIds: [kwTest!.id] }, authUser);
     assert(resEnrich.getStatus() === 200, 'Test 21: Provider enrichment with mock provider returns 200');
     assert(resEnrich.getData().keywords[0].searchVolume !== null, 'Test 21: Search volume populated by mock provider');
+    assert(resEnrich.getData().providerConfigured === true, 'Test 21b: Reports providerConfigured as true');
+    assert(resEnrich.getData().enrichedCount === 1, 'Test 21c: Reports enrichedCount as 1');
+    assert(typeof resEnrich.getData().message === 'string' && resEnrich.getData().message.includes('Successfully enriched'), 'Test 21d: Returns success message');
 
-    // 22. provider failure (handled generically by returning 500 if provider throws... wait we caught it in index.ts and return 200!)
+    // 22. provider failure (handled gracefully with fallback)
     class FailProvider { enrichKeywords() { throw new Error('API down'); } }
     setKeywordResearchProvider(new FailProvider() as any);
     const resFailProv = await dispatchRoute('POST', `/${website1.id}/keywords/research`, { keywordIds: [kwTest!.id] }, authUser);
     assert(resFailProv.getStatus() === 200, 'Test 22: Provider failure handled gracefully (200)');
     setKeywordResearchProvider(null as any); // reset
+
+    // 22a. Missing/empty keywordIds rejected with 400
+    const resEmptyKws = await dispatchRoute('POST', `/${website1.id}/keywords/research`, { keywordIds: [] }, authUser);
+    assert(resEmptyKws.getStatus() === 400, 'Test 22a: Empty keywordIds rejected with 400');
 
     // 22b. Discover keywords endpoint
     const resDiscover = await dispatchRoute('POST', `/${website1.id}/keywords/discover`, { seedKeywords: ['seo tool'], topic: 'software' }, authUser);

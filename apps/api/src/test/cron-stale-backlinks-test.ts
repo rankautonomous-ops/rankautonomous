@@ -203,16 +203,18 @@ describe('Cron: enqueueStaleBacklinks', () => {
     const oldDate = new Date();
     oldDate.setDate(oldDate.getDate() - 15);
     
-    const bl1 = await createBacklink('VERIFIED', oldDate);
-    const bl2 = await createBacklink('MISSING', oldDate);
-    const bl3 = await createBacklink('ERROR', oldDate);
+    try {
+      const bl1 = await createBacklink('VERIFIED', oldDate);
+      const bl2 = await createBacklink('MISSING', oldDate);
+      const bl3 = await createBacklink('ERROR', oldDate);
 
-    await run();
-    
-    const jobs = await getJobsForBacklinks([bl1.id, bl2.id, bl3.id]);
-    assert.strictEqual(jobs.length, 2); // Only 2 were queued because batch size is 2
-    
-    // Reset to normal
-    process.env.BACKLINK_VERIFICATION_BATCH_SIZE = '500';
+      await run();
+      
+      const totalJobs = await prisma.backgroundJob.count({ where: { type: 'BACKLINK_VERIFICATION' } });
+      assert.strictEqual(totalJobs, 2); // Exactly 2 were queued because batch size is 2
+    } finally {
+      // Reset to normal
+      process.env.BACKLINK_VERIFICATION_BATCH_SIZE = '500';
+    }
   });
 });

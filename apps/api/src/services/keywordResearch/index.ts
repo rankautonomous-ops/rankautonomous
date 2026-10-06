@@ -84,7 +84,16 @@ export async function reclusterWebsiteKeywords(websiteId: string) {
   }
 }
 
-export async function enrichKeywordsData(websiteId: string, keywordIds: string[]) {
+export interface KeywordEnrichmentResult {
+  keywords: any[];
+  providerConfigured: boolean;
+  gscConnected: boolean;
+  gscRecordCount: number;
+  enrichedCount: number;
+  message: string;
+}
+
+export async function enrichKeywordsData(websiteId: string, keywordIds: string[]): Promise<KeywordEnrichmentResult> {
   const keywordsToEnrich = await prisma.keyword.findMany({
     where: {
       id: { in: keywordIds },
@@ -93,7 +102,29 @@ export async function enrichKeywordsData(websiteId: string, keywordIds: string[]
     }
   });
 
-  if (!keywordsToEnrich.length) return [];
+  // Check GSC integration in database
+  const gscIntegration = await prisma.integration.findFirst({
+    where: {
+      websiteId,
+      provider: { in: ['GSC', 'GOOGLE_SEARCH_CONSOLE', 'GOOGLE'] },
+      status: 'ACTIVE'
+    }
+  });
+  const gscConnected = !!gscIntegration;
+
+  const provider = getKeywordResearchProvider();
+  const providerConfigured = !!provider;
+
+  if (!keywordsToEnrich.length) {
+    return {
+      keywords: [],
+      providerConfigured,
+      gscConnected,
+      gscRecordCount: 0,
+      enrichedCount: 0,
+      message: 'No active keywords found to enrich.'
+    };
+  }
 
   // GSC Metrics enrichment
   const gscRecords = await prisma.searchPerformanceRecord.groupBy({
@@ -117,13 +148,12 @@ export async function enrichKeywordsData(websiteId: string, keywordIds: string[]
     }
   ]));
 
-  const provider = getKeywordResearchProvider();
   let metricsMap: any = {};
   if (provider) {
     try {
       metricsMap = await provider.enrichKeywords(keywordsToEnrich.map(k => k.keyword));
-    } catch (e) {
-      console.log('Provider enrichment failed, falling back to GSC only', e);
+    } catch (e: any) {
+      console.warn(`[Keyword Research] Website ${websiteId}: Provider enrichment failed (${e?.message || 'unknown error'}). Falling back to GSC only.`);
     }
   }
 
@@ -154,5 +184,25 @@ export async function enrichKeywordsData(websiteId: string, keywordIds: string[]
     }
   }
 
-  return updated;
+  let message = '';
+  if (updated.length > 0) {
+    message = `Successfully enriched ${updated.length} keyword${updated.length === 1 ? '' : 's'}.`;
+  } else if (!providerConfigured && !gscConnected) {
+    message = 'No keyword metrics provider is connected. Connect Google Search Console or configure a supported metrics provider to enrich keyword data.';
+  } else if (gscConnected && !providerConfigured) {
+    message = 'Google Search Console is connected, but no performance data was recorded for the selected keywords in the last 30 days.';
+  } else {
+    message = 'Connected providers did not find search metrics for the selected keywords.';
+  }
+
+  console.log(`[Keyword Research] Website ${websiteId}: Processed ${keywordsToEnrich.length} keywords. Provider configured: ${providerConfigured}, GSC connected: ${gscConnected}, Enriched: ${updated.length}.`);
+
+  return {
+    keywords: updated,
+    providerConfigured,
+    gscConnected,
+    gscRecordCount: gscRecords.length,
+    enrichedCount: updated.length,
+    message
+  };
 }

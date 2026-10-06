@@ -11,7 +11,10 @@ export default function KeywordWorkspace() {
   const [keywords, setKeywords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [providerError, setProviderError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'info' | 'error';
+    message: string;
+  } | null>(null);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,7 +38,6 @@ export default function KeywordWorkspace() {
   const [addingDiscovered, setAddingDiscovered] = useState(false);
 
   const supabase = createClient();
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
     fetchActiveWebsite();
@@ -46,7 +48,7 @@ export default function KeywordWorkspace() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       
-      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
+      const siteRes = await apiFetch('/api/websites/active', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (!siteRes.ok) throw new Error('No active website');
@@ -71,7 +73,7 @@ export default function KeywordWorkspace() {
 
   const fetchKeywords = async (websiteId: string, token: string) => {
     try {
-      const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/keywords`, {
+      const res = await apiFetch(`/api/websites/${websiteId}/keywords`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -92,7 +94,7 @@ export default function KeywordWorkspace() {
     setAddingKeyword(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/keywords`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +128,7 @@ export default function KeywordWorkspace() {
     if (!activeWebsite) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/${keywordId}`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/keywords/${keywordId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -140,32 +142,73 @@ export default function KeywordWorkspace() {
   };
 
   const enrichKeywords = async () => {
-    if (!activeWebsite || keywords.length === 0) return;
-    setProviderError(null);
+    if (!activeWebsite || keywords.length === 0 || enriching) return;
+    setNotification(null);
     setEnriching(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setNotification({
+          type: 'error',
+          message: 'Your session has expired. Please sign in again.'
+        });
+        return;
+      }
+
       const keywordIds = keywords.map(k => k.id);
       
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/research`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/keywords/research`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`
+          Authorization: `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ keywordIds })
       });
 
+      const data = await res.json().catch(() => null);
+
       if (res.status === 503) {
-        const errData = await res.json();
-        setProviderError(errData.message || 'Keyword provider not configured. Metrics will display as Not available.');
+        setNotification({
+          type: 'info',
+          message: data?.message || 'No keyword metrics provider is connected. Connect Google Search Console or configure a supported metrics provider to enrich keyword data.'
+        });
+      } else if (res.status === 403) {
+        setNotification({
+          type: 'error',
+          message: data?.message || 'Active subscription required to enrich keywords.'
+        });
       } else if (res.ok) {
-        fetchKeywords(activeWebsite.id, session!.access_token);
+        if (data?.enrichedCount > 0) {
+          setNotification({
+            type: 'success',
+            message: data.message || `Successfully enriched ${data.enrichedCount} keyword${data.enrichedCount === 1 ? '' : 's'}.`
+          });
+          // Refresh workspace data with updated metrics
+          await fetchKeywords(activeWebsite.id, session.access_token);
+        } else if (!data?.providerConfigured && !data?.gscConnected) {
+          setNotification({
+            type: 'info',
+            message: data?.message || 'No keyword metrics provider is connected. Connect Google Search Console or configure a supported metrics provider to enrich keyword data.'
+          });
+        } else {
+          setNotification({
+            type: 'info',
+            message: data?.message || 'No updated metrics found for the selected keywords.'
+          });
+        }
       } else {
-        setProviderError('Failed to enrich keywords.');
+        setNotification({
+          type: 'error',
+          message: data?.message || 'Failed to enrich keywords. Please try again.'
+        });
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Enrich keywords request failed:', err);
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to enrich keywords. Please check your network connection.'
+      });
     } finally {
       setEnriching(false);
     }
@@ -180,7 +223,7 @@ export default function KeywordWorkspace() {
       const { data: { session } } = await supabase.auth.getSession();
       const seeds = discoverSeed.split(',').map(s => s.trim()).filter(Boolean);
       
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords/discover`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/keywords/discover`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -239,7 +282,7 @@ export default function KeywordWorkspace() {
           source: k.source
         }));
 
-      const res = await apiFetch(`${apiUrl}/api/websites/${activeWebsite.id}/keywords`, {
+      const res = await apiFetch(`/api/websites/${activeWebsite.id}/keywords`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -302,9 +345,33 @@ export default function KeywordWorkspace() {
         </button>
       </div>
 
-      {providerError && (
-        <div className={styles.infoBanner}>
-          ℹ️ {providerError}
+      {notification && (
+        <div 
+          className={
+            notification.type === 'success' 
+              ? styles.successBanner 
+              : notification.type === 'error' 
+                ? styles.errorBanner 
+                : styles.infoBanner
+          }
+          role="status"
+          aria-live="polite"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '15px' }}>
+                {notification.type === 'success' ? '✓' : notification.type === 'error' ? '⚠️' : 'ℹ️'}
+              </span>
+              <span>{notification.message}</span>
+            </div>
+            <button 
+              onClick={() => setNotification(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.7, padding: '2px 6px', fontSize: '16px', lineHeight: 1 }}
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 

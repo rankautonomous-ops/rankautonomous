@@ -240,8 +240,36 @@
   background: var(--surface-soft, #fbf8f5);
   border: 1px solid var(--border, #ded9d4);
   border-radius: var(--radius-sm, 10px);
-  padding: 12px 18px;
+  padding: 14px 18px;
   color: var(--text-secondary, #5f5b58);
   font-size: 13px;
-  margin-bottom: 18px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.successBanner {
+  background: var(--success-soft, #eaf3ed);
+  border: 1px solid var(--success, #6f9b7c);
+  border-radius: var(--radius-sm, 10px);
+  padding: 14px 18px;
+  color: #234d31;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.errorBanner {
+  background: var(--error-soft, #faecec);
+  border: 1px solid var(--error, #c66f6f);
+  border-radius: var(--radius-sm, 10px);
+  padding: 14px 18px;
+  color: #8a2727;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
