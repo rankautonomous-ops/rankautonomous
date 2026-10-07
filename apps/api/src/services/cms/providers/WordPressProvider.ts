@@ -34,6 +34,14 @@ export class WordPressCmsProvider implements CmsProvider {
         wpPayload.date_gmt = new Date(payload.scheduledAt).toISOString();
       }
 
+      // Duplicate protection
+      if (payload.slug) {
+        const existing = await this.client.getPosts({ slug: payload.slug });
+        if (existing && existing.length > 0) {
+           return await this.updateArticle(existing[0].id.toString(), payload);
+        }
+      }
+
       const res = await this.client.createPost(wpPayload);
 
       return {

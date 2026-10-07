@@ -5,6 +5,42 @@ import { Trash2, Settings, Loader2, Globe, Plus, CheckCircle2, AlertCircle } fro
 import styles from './integrations.module.css';
 import { apiFetch } from '../../../lib/api';
 
+const CMS_CATEGORIES = [
+  {
+    label: 'CMS / Website Platforms',
+    options: [
+      { value: 'WORDPRESS', label: 'WordPress', status: 'Available' },
+      { value: 'WORDPRESS_COM', label: 'WordPress.com', status: 'Available' },
+      { value: 'SHOPIFY', label: 'Shopify', status: 'Available' },
+      { value: 'WEBFLOW', label: 'Webflow', status: 'Available' },
+      { value: 'GHOST', label: 'Ghost', status: 'Requires configuration' },
+      { value: 'NOTION', label: 'Notion', status: 'Requires configuration' },
+      { value: 'WIX', label: 'Wix', status: 'Coming Soon' },
+      { value: 'SQUARESPACE', label: 'Squarespace', status: 'Coming Soon' },
+      { value: 'BIGCOMMERCE', label: 'BigCommerce', status: 'Coming Soon' },
+      { value: 'DUDA', label: 'Duda', status: 'Coming Soon' },
+      { value: 'HUBSPOT', label: 'HubSpot', status: 'Coming Soon' },
+      { value: 'HIGHLEVEL', label: 'HighLevel', status: 'Coming Soon' },
+      { value: 'FRAMER', label: 'Framer', status: 'Coming Soon' }
+    ]
+  },
+  {
+    label: 'Developer / Custom',
+    options: [
+      { value: 'NEXTJS', label: 'Next.js Blog', status: 'Available' },
+      { value: 'WEBHOOK', label: 'Generic Webhook', status: 'Available' },
+      { value: 'RSS', label: 'RSS Feed', status: 'Available' },
+      { value: 'CUSTOM', label: 'Custom API', status: 'Available' }
+    ]
+  },
+  {
+    label: 'Other',
+    options: [
+      { value: 'LOVABLE', label: 'Lovable', status: 'Coming Soon' }
+    ]
+  }
+];
+
 export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
   const [connections, setConnections] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -12,7 +48,15 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [isAdding, setIsAdding] = useState(false);
-  const [newConnData, setNewConnData] = useState({ provider: 'WORDPRESS', name: '', baseUrl: '', username: '', token: '' });
+  const [newConnData, setNewConnData] = useState({ 
+    provider: 'WORDPRESS', 
+    name: '', 
+    baseUrl: '', 
+    username: '', 
+    token: '',
+    authMethod: 'BEARER',
+    databaseId: ''
+  });
 
   const fetchConnections = async () => {
     setIsLoading(true);
@@ -48,17 +92,26 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
         credentials: {}
       };
 
-      if (newConnData.provider === 'WORDPRESS') {
+      if (['WORDPRESS', 'WORDPRESS_COM'].includes(newConnData.provider)) {
         payload.credentials = { username: newConnData.username, applicationPassword: newConnData.token };
       } else if (newConnData.provider === 'SHOPIFY') {
         payload.credentials = { accessToken: newConnData.token };
-        payload.metadata = { blogId: '' }; // Will need UI to set
+        payload.metadata = { blogId: '' };
       } else if (newConnData.provider === 'WEBFLOW') {
         payload.credentials = { accessToken: newConnData.token };
         payload.metadata = { siteId: '', collectionId: '' };
-      } else if (newConnData.provider === 'CUSTOM') {
+      } else if (newConnData.provider === 'GHOST') {
+        payload.credentials = { adminApiKey: newConnData.token };
+      } else if (newConnData.provider === 'NOTION') {
+        payload.credentials = { integrationToken: newConnData.token };
+        payload.metadata = { databaseId: newConnData.databaseId };
+      } else if (['CUSTOM', 'WEBHOOK', 'NEXTJS'].includes(newConnData.provider)) {
         payload.credentials = { token: newConnData.token };
-        payload.metadata = { authMethod: 'BEARER' };
+        payload.metadata = { authMethod: newConnData.authMethod };
+      } else if (newConnData.provider === 'RSS') {
+        // No credentials for RSS, just generating it locally
+        payload.credentials = {};
+        payload.metadata = {};
       }
 
       const res = await apiFetch(`${apiUrl}/api/websites/${websiteId}/cms-connections`, {
@@ -77,7 +130,7 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
 
       setSuccess('CMS Connection added.');
       setIsAdding(false);
-      setNewConnData({ provider: 'WORDPRESS', name: '', baseUrl: '', username: '', token: '' });
+      setNewConnData({ provider: 'WORDPRESS', name: '', baseUrl: '', username: '', token: '', authMethod: 'BEARER', databaseId: '' });
       fetchConnections();
     } catch (err: any) {
       setError(err.message);
@@ -119,6 +172,10 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
     } catch (err) {}
   };
 
+  const selectedProviderConfig = CMS_CATEGORIES.flatMap(c => c.options).find(o => o.value === newConnData.provider);
+  const isComingSoon = selectedProviderConfig?.status === 'Coming Soon';
+  const isRequiresConfig = selectedProviderConfig?.status === 'Requires configuration';
+
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}><Loader2 className={styles.spinner} size={32} /></div>;
 
   return (
@@ -155,7 +212,7 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
             </div>
             
             <h2 className={styles.cardTitle}>{c.name} ({c.provider})</h2>
-            <p className={styles.cardDesc}>{c.baseUrl}</p>
+            <p className={styles.cardDesc}>{c.baseUrl || 'Managed locally'}</p>
             
             {c.lastError && (
               <p style={{ color: 'var(--error-500)', fontSize: '0.875rem', marginTop: '8px' }}>{c.lastError}</p>
@@ -189,62 +246,113 @@ export default function CmsConnections({ websiteId, apiUrl, supabase }: any) {
                 value={newConnData.provider} 
                 onChange={e => setNewConnData({...newConnData, provider: e.target.value})}
               >
-                <option value="WORDPRESS">WordPress</option>
-                <option value="SHOPIFY">Shopify</option>
-                <option value="WEBFLOW">Webflow</option>
-                <option value="CUSTOM">Custom Webhook</option>
+                {CMS_CATEGORIES.map(category => (
+                  <optgroup key={category.label} label={category.label}>
+                    {category.options.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label} ({option.status})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Connection Name</label>
-              <input 
-                required
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                value={newConnData.name} onChange={e => setNewConnData({...newConnData, name: e.target.value})} 
-                placeholder="e.g. My Main Blog" 
-              />
-            </div>
-
-            {newConnData.provider !== 'WEBFLOW' && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  {newConnData.provider === 'SHOPIFY' ? 'Store URL (e.g. mystore.myshopify.com)' : 'Base URL / Endpoint'}
-                </label>
-                <input 
-                  required
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                  value={newConnData.baseUrl} onChange={e => setNewConnData({...newConnData, baseUrl: e.target.value})} 
-                  placeholder="https://..." 
-                />
+            {isComingSoon ? (
+              <div style={{ padding: '16px', background: 'var(--surface-soft)', borderRadius: '8px', color: 'var(--text-secondary)' }}>
+                This integration is coming soon and is currently being developed.
               </div>
-            )}
+            ) : (
+              <>
+                {isRequiresConfig && (
+                   <div style={{ padding: '12px', background: 'rgba(255, 165, 0, 0.1)', color: '#d97706', borderRadius: '8px', fontSize: '0.875rem' }}>
+                     This provider's architecture is built, but full publishing requires final manual setup and configuration. Connection validation may fail until setup is complete.
+                   </div>
+                )}
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Connection Name</label>
+                  <input 
+                    required
+                    style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                    value={newConnData.name} onChange={e => setNewConnData({...newConnData, name: e.target.value})} 
+                    placeholder="e.g. My Main Blog" 
+                  />
+                </div>
 
-            {newConnData.provider === 'WORDPRESS' && (
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Username</label>
-                <input 
-                  required
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                  value={newConnData.username} onChange={e => setNewConnData({...newConnData, username: e.target.value})} 
-                />
-              </div>
-            )}
+                {!['WEBFLOW', 'NOTION', 'RSS'].includes(newConnData.provider) && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      {newConnData.provider === 'SHOPIFY' ? 'Store URL (e.g. mystore.myshopify.com)' : 'Base URL / Endpoint'}
+                    </label>
+                    <input 
+                      required
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                      value={newConnData.baseUrl} onChange={e => setNewConnData({...newConnData, baseUrl: e.target.value})} 
+                      placeholder="https://..." 
+                    />
+                  </div>
+                )}
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                {newConnData.provider === 'WORDPRESS' ? 'Application Password' : 'Access Token / API Key'}
-              </label>
-              <input 
-                required
-                type="password"
-                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                value={newConnData.token} onChange={e => setNewConnData({...newConnData, token: e.target.value})} 
-              />
-            </div>
+                {['WORDPRESS', 'WORDPRESS_COM'].includes(newConnData.provider) && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Username</label>
+                    <input 
+                      required
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                      value={newConnData.username} onChange={e => setNewConnData({...newConnData, username: e.target.value})} 
+                    />
+                  </div>
+                )}
+
+                {['WEBHOOK', 'NEXTJS', 'CUSTOM'].includes(newConnData.provider) && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Authentication Method</label>
+                    <select
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                      value={newConnData.authMethod} onChange={e => setNewConnData({...newConnData, authMethod: e.target.value})}
+                    >
+                      <option value="NONE">None</option>
+                      <option value="BEARER">Bearer Token</option>
+                      <option value="API_KEY">API Key Header</option>
+                    </select>
+                  </div>
+                )}
+
+                {newConnData.provider === 'NOTION' && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Database ID</label>
+                    <input 
+                      required
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                      value={newConnData.databaseId} onChange={e => setNewConnData({...newConnData, databaseId: e.target.value})} 
+                      placeholder="e.g. e2a123..." 
+                    />
+                  </div>
+                )}
+
+                {newConnData.provider !== 'RSS' && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      {['WORDPRESS', 'WORDPRESS_COM'].includes(newConnData.provider) ? 'Application Password' : 
+                       newConnData.provider === 'GHOST' ? 'Admin API Key' : 
+                       newConnData.provider === 'NOTION' ? 'Integration Token' : 
+                       'Access Token / API Key'}
+                    </label>
+                    <input 
+                      required={newConnData.provider !== 'WEBHOOK' && newConnData.provider !== 'NEXTJS' && newConnData.provider !== 'CUSTOM' || newConnData.authMethod !== 'NONE'}
+                      type="password"
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                      value={newConnData.token} onChange={e => setNewConnData({...newConnData, token: e.target.value})} 
+                    />
+                  </div>
+                )}
+
+              </>
+            )}
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="submit" className={styles.primaryButton}>Save Connection</button>
+              <button type="submit" className={styles.primaryButton} disabled={isComingSoon}>Save Connection</button>
               <button type="button" className={styles.secondaryButton} onClick={() => setIsAdding(false)}>Cancel</button>
             </div>
           </form>

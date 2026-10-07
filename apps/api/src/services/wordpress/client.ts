@@ -244,6 +244,16 @@ export class WordPressClient {
   }
 
   /**
+   * Retrieves a list of posts from WordPress based on query.
+   */
+  async getPosts(query: Record<string, string> = {}): Promise<WordPressPostResponse[]> {
+    return this.executeRequest<WordPressPostResponse[]>('/posts', {
+      method: 'GET',
+      query: { ...query, context: 'edit' },
+    });
+  }
+
+  /**
    * Trashes or permanently deletes a post in WordPress.
    */
   async deletePost(postId: number, force = false): Promise<WordPressPostResponse> {
