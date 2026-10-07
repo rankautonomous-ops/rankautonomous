@@ -117,6 +117,24 @@
   border-bottom-left-radius: 4px;
 }
 
+.message.assistant p {
+  margin-bottom: 8px;
+}
+.message.assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.message.assistant ul, .message.assistant ol {
+  margin-left: 20px;
+  margin-bottom: 8px;
+}
+.message.assistant ul:last-child, .message.assistant ol:last-child {
+  margin-bottom: 0;
+}
+.message.assistant li {
+  margin-bottom: 4px;
+}
+
 .loadingIndicator {
   display: flex;
   gap: 4px;

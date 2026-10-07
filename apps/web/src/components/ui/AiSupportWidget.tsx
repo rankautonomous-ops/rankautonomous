@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { MessageSquare, X, Send, Bot } from 'lucide-react';
 import styles from './AiSupportWidget.module.css';
 
@@ -112,7 +113,11 @@ export default function AiSupportWidget() {
           <div className={styles.chatMessages}>
             {messages.map(msg => (
               <div key={msg.id} className={`${styles.message} ${styles[msg.role]}`}>
-                {msg.content}
+                {msg.role === 'assistant' ? (
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
               </div>
             ))}
             {isLoading && (
