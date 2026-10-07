@@ -55,6 +55,21 @@ export class ShopifyCmsProvider implements CmsProvider {
         }
       };
 
+      // Duplicate protection
+      if (payload.slug) {
+        const searchRes = await fetch(`${this.apiUrl}/blogs/${this.blogId}/articles.json?handle=${payload.slug}`, {
+          headers: {
+            'X-Shopify-Access-Token': this.accessToken,
+          }
+        });
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          if (searchData.articles && searchData.articles.length > 0) {
+            return await this.updateArticle(searchData.articles[0].id.toString(), payload);
+          }
+        }
+      }
+
       const res = await fetch(`${this.apiUrl}/blogs/${this.blogId}/articles.json`, {
         method: 'POST',
         headers: {

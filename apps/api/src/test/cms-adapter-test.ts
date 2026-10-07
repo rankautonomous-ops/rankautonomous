@@ -83,6 +83,48 @@ async function main() {
     assert(e.message.includes('SSRF') || e.message.includes('Private IPs are not allowed'), 'SSRF protection for WEBHOOK endpoint works');
   }
 
+  // Ghost Provider
+  try {
+    const ghost = createCmsProvider({ provider: 'GHOST', baseUrl: 'https://example.com', credentials: encryptJson({ adminApiKey: 'invalid_format' }) } as any);
+    await ghost.testConnection();
+    assert(false, 'Ghost provider should fail on invalid key format');
+  } catch (e: any) {
+    assert(e.message.includes('Invalid Ghost Admin API key format') || e.message.includes('Expected id:secret'), 'Ghost provider validates API key format');
+  }
+
+  // RSS Provider
+  try {
+    const rss = createCmsProvider({ provider: 'RSS', metadata: {} } as any);
+    const pub = await rss.publishArticle({ title: 'test', content: 'test', status: 'publish' });
+    assert(pub.status === 'PUBLISHED', 'RSS adapter successfully returns PUBLISHED');
+  } catch (e: any) {
+    failed++;
+  }
+
+  // Shopify Adapter behavior
+  try {
+    const shopify = createCmsProvider({ provider: 'SHOPIFY', baseUrl: 'https://test.myshopify.com', credentials: encryptJson({ accessToken: 'test' }), metadata: { blogId: '123' } } as any);
+    assert(shopify.constructor.name === 'ShopifyCmsProvider', 'Shopify adapter initializes correctly');
+  } catch (e: any) {
+    failed++;
+  }
+
+  // Webflow Adapter behavior
+  try {
+    const webflow = createCmsProvider({ provider: 'WEBFLOW', credentials: encryptJson({ accessToken: 'test' }), metadata: { siteId: '123', collectionId: 'abc' } } as any);
+    assert(webflow.constructor.name === 'WebflowCmsProvider', 'Webflow adapter initializes correctly');
+  } catch (e: any) {
+    failed++;
+  }
+
+  // Next.js Adapter behavior
+  try {
+    const nextjs = createCmsProvider({ provider: 'NEXTJS', baseUrl: 'https://example.com/api/webhook', credentials: encryptJson({ token: 'test' }), metadata: { authMethod: 'BEARER' } } as any);
+    assert(nextjs.constructor.name === 'CustomCmsProvider', 'Next.js adapter uses CustomCmsProvider');
+  } catch (e: any) {
+    failed++;
+  }
+
   console.log(`\nTests finished: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }
