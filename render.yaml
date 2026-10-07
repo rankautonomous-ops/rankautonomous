@@ -38,6 +38,10 @@ services:
         sync: false
       - key: AI_PROVIDER_API_KEY
         sync: false
+      - key: API_URL
+        value: https://rankautonomous-api.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://rankautonomous.vercel.app
       - key: PORT
         value: 4000
 

@@ -90,7 +90,11 @@ export function getStripeAppUrl(): string {
 
 export function getApiBaseUrl(): string {
   loadEnvironment();
-  return process.env.API_URL || 'http://localhost:4000';
+  return (
+    process.env.API_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    'http://localhost:4000'
+  );
 }
 
 export function getAppBaseUrl(): string {
