@@ -85,33 +85,38 @@ export default function CampaignsView({ websiteId }: CampaignsViewProps) {
             campaigns.map(c => (
               <tr key={c.id}>
                 <td>
-                  <strong>{c.opportunity?.domain}</strong><br/>
-                  <span style={{fontSize: 12}}>{c.opportunity?.type}</span>
+                  <div className={styles.tableDomain}>{c.opportunity?.domain}</div>
+                  <span className={styles.oppCardType}>{c.opportunity?.type}</span>
                 </td>
                 <td>
-                  {c.contactName || 'No Name'} <br/>
-                  {c.contactEmail || 'No Email'}
+                  <div style={{ fontWeight: 600, color: 'var(--text)' }}>{c.contactName || 'No Name'}</div>
+                  <div className={styles.tableTimestamp}>{c.contactEmail || 'No Email'}</div>
                 </td>
                 <td>
                   <span className={styles.statusBadge}>{c.status}</span>
                 </td>
                 <td>
                   {c.message ? (
-                    <div style={{ maxWidth: 300, maxHeight: 80, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12 }}>
+                    <div style={{ maxWidth: 300, maxHeight: 80, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 13, lineHeight: 1.4 }}>
                       <strong>{c.subject}</strong><br/>
-                      {c.message}
+                      <span style={{ color: 'var(--text-secondary)' }}>{c.message}</span>
                     </div>
                   ) : (
-                    <span style={{fontSize: 12, color: 'gray'}}>No draft yet</span>
+                    <span className={styles.tableTimestamp}>No draft yet</span>
                   )}
                 </td>
                 <td>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button className={styles.secondaryButton} onClick={() => generateMessage(c.id)} disabled={generatingFor === c.id}>
-                      {generatingFor === c.id ? 'Generating...' : 'Generate AI Message'}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button className={styles.tableActionButton} onClick={() => generateMessage(c.id)} disabled={generatingFor === c.id}>
+                      {generatingFor === c.id ? (
+                        <>
+                          <Loader2 className={styles.spinner} size={12} />
+                          <span>Generating...</span>
+                        </>
+                      ) : 'Generate AI Message'}
                     </button>
                     {c.message && (
-                      <a href={`mailto:${c.contactEmail || ''}?subject=${encodeURIComponent(c.subject || '')}&body=${encodeURIComponent(c.message)}`} className={styles.secondaryButton}>
+                      <a href={`mailto:${c.contactEmail || ''}?subject=${encodeURIComponent(c.subject || '')}&body=${encodeURIComponent(c.message)}`} className={styles.tableActionButton}>
                         Send Email
                       </a>
                     )}

@@ -364,7 +364,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
           <p className={styles.pageSubtitle}>Loading website data...</p>
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
-          <Loader2 className="animate-spin" size={36} style={{ color: 'var(--text-secondary)' }} />
+          <Loader2 className={styles.spinner} size={36} style={{ color: 'var(--text-secondary)' }} />
         </div>
       </div>
     );
@@ -379,34 +379,14 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
             Connect a website to manage backlink opportunities and tracking.
           </p>
         </div>
-        <div style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: '12px',
-          padding: '48px 24px',
-          textAlign: 'center',
-          marginTop: '24px'
-        }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
+        <div className={styles.emptyState}>
+          <div className={styles.emptyStateTitle}>
             No Active Website Connected
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '480px', margin: '0 auto 24px' }}>
+          </div>
+          <div className={styles.emptyStateDesc}>
             Complete guided setup to register your domain and start tracking backlink opportunities and verifications.
-          </p>
-          <Link
-            href="/app/onboarding"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#8c423d',
-              color: '#ffffff',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              fontWeight: 600,
-              textDecoration: 'none'
-            }}
-          >
+          </div>
+          <Link href="/app/onboarding" className={styles.primaryButton}>
             Start Setup →
           </Link>
         </div>
@@ -546,8 +526,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
                           ))}
                         </select>
                         <button 
-                          className={styles.secondaryButton} 
-                          style={{marginTop: 4, width: '100%', fontSize: 11, padding: '4px'}}
+                          className={styles.cardActionButton} 
                           onClick={async () => {
                             if (opp.status === 'DISCOVERED') {
                               await apiFetch(`/api/websites/${activeWebsite.id}/backlink-opportunities/${opp.id}/qualify`, {
@@ -603,36 +582,33 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
               <tbody>
                 {backlinks.map(bl => (
                   <tr key={bl.id}>
-                    <td><a href={bl.sourceUrl} target="_blank" rel="noreferrer" style={{color: '#0066cc'}}>{bl.sourceUrl}</a></td>
-                    <td><a href={bl.targetUrl} target="_blank" rel="noreferrer" style={{color: '#0066cc'}}>{bl.targetUrl}</a></td>
-                    <td>{bl.referringDomain}</td>
+                    <td><a href={bl.sourceUrl} target="_blank" rel="noreferrer" className={styles.tableLink}>{bl.sourceUrl}</a></td>
+                    <td><a href={bl.targetUrl} target="_blank" rel="noreferrer" className={styles.tableLink}>{bl.targetUrl}</a></td>
+                    <td><span className={styles.tableDomain}>{bl.referringDomain}</span></td>
                     <td>
-                      <span style={{ 
-                        background: bl.status === 'ACTIVE' ? '#dcfce7' : '#fee2e2', 
-                        color: bl.status === 'ACTIVE' ? '#166534' : '#991b1b',
-                        padding: '4px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 
-                      }}>
+                      <span className={bl.status === 'ACTIVE' ? styles.badgeActive : styles.badgeInactive}>
                         {bl.status}
                       </span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                        <span style={{ 
-                          background: bl.verificationStatus === 'VERIFIED' ? '#dcfce7' : bl.verificationStatus === 'ERROR' ? '#fee2e2' : bl.verificationStatus === 'MISSING' ? '#fef08a' : '#f3f4f6', 
-                          color: bl.verificationStatus === 'VERIFIED' ? '#166534' : bl.verificationStatus === 'ERROR' ? '#991b1b' : bl.verificationStatus === 'MISSING' ? '#854d0e' : '#374151',
-                          padding: '4px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600 
-                        }}>
+                        <span className={
+                          bl.verificationStatus === 'VERIFIED' ? styles.badgeVerified :
+                          bl.verificationStatus === 'ERROR' ? styles.badgeInactive :
+                          bl.verificationStatus === 'MISSING' ? styles.badgeWarning :
+                          styles.badgeNeutral
+                        }>
                           {bl.verificationStatus}
                         </span>
                         {bl.verificationStatus === 'ERROR' && (
-                           <span style={{ fontSize: 11, color: '#991b1b', maxWidth: 150, wordWrap: 'break-word' }}>
+                           <span className={styles.tableErrorMessage}>
                              {bl.lastErrorMessage || 'Verification could not be completed.'}
                            </span>
                         )}
                       </div>
                     </td>
                     <td>
-                      <span style={{ fontSize: 13, color: '#5f5b58' }}>
+                      <span className={styles.tableTimestamp}>
                         {(() => {
                           if (bl.verificationStatus === 'UNVERIFIED') {
                             return 'Never';
@@ -645,14 +621,18 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         <button 
-                          className={styles.secondaryButton} 
-                          style={{ padding: '4px 8px', fontSize: 12, minWidth: '80px', display: 'flex', justifyContent: 'center' }}
+                          className={styles.tableActionButton} 
                           onClick={() => handleVerify(bl)}
                           disabled={!!verifyingBacklinks[bl.id] || verifyingBacklinks[bl.id]?.status === 'Timeout'}
                         >
-                          {verifyingBacklinks[bl.id] ? verifyingBacklinks[bl.id].status : 'Verify'}
+                          {verifyingBacklinks[bl.id] ? (
+                            <>
+                              <Loader2 className={styles.spinner} size={12} />
+                              <span>{verifyingBacklinks[bl.id].status}</span>
+                            </>
+                          ) : 'Verify'}
                         </button>
                         <button className={`${styles.actionLink} ${styles.dangerLink}`} onClick={() => handleDeleteBacklink(bl.id)}>Delete</button>
                       </div>
@@ -721,7 +701,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
               <h2 className={styles.modalTitle}>Record Acquired Backlink</h2>
               <button className={styles.closeButton} onClick={() => setShowAddBacklink(false)}>&times;</button>
             </div>
-            <div style={{ marginBottom: 16, fontSize: 13, color: '#5f5b58' }}>
+            <div className={styles.modalNote}>
               Recording a backlink does not verify that the link currently exists. Future background workers will handle live verification.
             </div>
             <form onSubmit={handleAddBacklink}>
@@ -761,7 +741,7 @@ export default function BacklinksClient({ initialWebsite }: { initialWebsite?: a
               <h2 className={styles.modalTitle}>Link Acquired!</h2>
               <button className={styles.closeButton} onClick={() => setTransitionTarget(null)}>&times;</button>
             </div>
-            <div style={{ marginBottom: 16, fontSize: 13, color: '#5f5b58' }}>
+            <div className={styles.modalNote}>
               Provide the source and target URLs to automatically create the permanent Backlink tracking record.
             </div>
             <form onSubmit={(e) => {

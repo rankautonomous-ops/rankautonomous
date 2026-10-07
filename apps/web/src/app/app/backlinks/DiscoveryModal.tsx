@@ -47,28 +47,31 @@ export default function DiscoveryModal({ websiteId, onClose, onDiscover }: Disco
   return (
     <div className={styles.modalOverlay}>
       <div className={styles.modalContent}>
-        <h3>Discover Opportunities</h3>
+        <div className={styles.modalHeader}>
+          <h2 className={styles.modalTitle}>Discover Opportunities</h2>
+          <button className={styles.closeButton} onClick={onClose} aria-label="Close modal">&times;</button>
+        </div>
         {error && <div className={styles.errorMessage}>{error}</div>}
         
         <div className={styles.formGroup}>
-          <label>Target Topic</label>
-          <input className={styles.input} value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g. B2B SaaS" />
+          <label className={styles.formLabel}>Target Topic</label>
+          <input className={styles.formInput} value={topic} onChange={e => setTopic(e.target.value)} placeholder="e.g. B2B SaaS" />
         </div>
         
         <div className={styles.formGroup}>
-          <label>Target Keyword (Optional)</label>
-          <input className={styles.input} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="e.g. saas pricing models" />
+          <label className={styles.formLabel}>Target Keyword (Optional)</label>
+          <input className={styles.formInput} value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="e.g. saas pricing models" />
         </div>
         
         <div className={styles.formGroup}>
-          <label>Competitor Domain (Optional)</label>
-          <input className={styles.input} value={competitor} onChange={e => setCompetitor(e.target.value)} placeholder="e.g. competitor.com" />
+          <label className={styles.formLabel}>Competitor Domain (Optional)</label>
+          <input className={styles.formInput} value={competitor} onChange={e => setCompetitor(e.target.value)} placeholder="e.g. competitor.com" />
         </div>
 
         <div className={styles.modalActions}>
           <button className={styles.secondaryButton} onClick={onClose} disabled={loading}>Cancel</button>
           <button className={styles.primaryButton} onClick={handleDiscover} disabled={loading}>
-            {loading ? <Loader2 className={styles.spinner} /> : 'Discover'}
+            {loading ? <Loader2 className={styles.spinner} size={16} /> : 'Discover'}
           </button>
         </div>
       </div>

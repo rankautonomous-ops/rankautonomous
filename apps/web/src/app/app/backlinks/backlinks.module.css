@@ -1,3 +1,7 @@
+/* =============================================================================
+   BACKLINKS PIPELINE & WORKSPACE (design.md / RankAutonomous Design System)
+   ============================================================================= */
+
 .workspaceContainer {
   max-width: var(--container-max, 1400px);
   margin: 0 auto;
@@ -23,76 +27,122 @@
   line-height: 1.5;
 }
 
+/* =============================================================================
+   STATISTIC / KPI METRIC CARDS
+   ============================================================================= */
+
+.kpiGrid,
 .metricsRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }
 
+.kpiCard,
 .metricCard {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, #ded9d4);
   border-radius: var(--radius-lg, 24px);
-  padding: 24px;
+  padding: 24px 28px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-}
-
-.metricValue {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--text, #111111);
-  margin-bottom: 4px;
-}
-
-.metricLabel {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary, #5f5b58);
-}
-
-.tabs {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border, #ded9d4);
-  padding-bottom: 16px;
-}
-
-.tab {
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  border: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary, #5f5b58);
-  cursor: pointer;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
   transition: all 0.15s ease;
 }
 
-.tab:hover {
-  background: var(--surface, #ffffff);
+.kpiCard:hover,
+.metricCard:hover {
+  border-color: var(--border-strong, #c8c1bb);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.04);
+}
+
+.kpiValue,
+.metricValue {
+  font-size: clamp(2rem, 3.5vw, 2.5rem);
+  font-weight: 800;
   color: var(--text, #111111);
+  letter-spacing: -0.03em;
+  margin: 4px 0 2px 0;
+  line-height: 1.1;
 }
 
-.tabActive {
-  background: var(--text, #111111);
-  color: #ffffff;
+.kpiLabel,
+.metricLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted, #8b8580);
 }
 
-.tabActive:hover {
-  background: var(--text, #111111);
-  color: #ffffff;
-}
+/* =============================================================================
+   CONTROLS BAR, PILL TABS & ACTION BUTTONS
+   ============================================================================= */
 
+.controlsBar,
 .topBar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+}
+
+.tabGroup,
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tabButton,
+.tab {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--border, #ded9d4);
+  background: var(--surface, #ffffff);
+  color: var(--text-secondary, #5f5b58);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  outline: none;
+}
+
+.tabButton:hover,
+.tab:hover {
+  color: var(--text, #111111);
+  border-color: var(--border-strong, #c8c1bb);
+}
+
+.tabButtonActive,
+.tabActive {
+  background: var(--text, #111111) !important;
+  color: #ffffff !important;
+  border-color: var(--text, #111111) !important;
+}
+
+.tabButtonActive:hover,
+.tabActive:hover {
+  background: var(--text, #111111) !important;
+  color: #ffffff !important;
+}
+
+.actionButtonGroup,
+.actionControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .filtersRow {
@@ -103,8 +153,8 @@
 }
 
 .filterSelect {
-  height: 36px;
-  padding: 0 12px;
+  height: 42px;
+  padding: 0 14px;
   border-radius: var(--radius-sm, 10px);
   border: 1px solid var(--border, #ded9d4);
   background: var(--surface, #ffffff);
@@ -112,28 +162,31 @@
   font-size: 13px;
   font-weight: 500;
   outline: none;
-}
-
-.actionControls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  font-family: inherit;
 }
 
 .primaryButton {
+  height: 42px;
+  padding: 0 20px;
   background: var(--text, #111111);
   color: #ffffff;
   border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-pill, 999px);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  text-decoration: none;
 }
 
 .primaryButton:hover:not(:disabled) {
-  background: #333333;
+  background: #222222;
+  transform: translateY(-1px);
 }
 
 .primaryButton:disabled {
@@ -142,22 +195,38 @@
 }
 
 .secondaryButton {
+  height: 42px;
+  padding: 0 18px;
   background: var(--surface, #ffffff);
   color: var(--text, #111111);
   border: 1px solid var(--border, #ded9d4);
-  padding: 10px 20px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-pill, 999px);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  text-decoration: none;
 }
 
 .secondaryButton:hover:not(:disabled) {
-  border-color: var(--text, #111111);
+  background: var(--surface-soft, #fbf8f5);
+  border-color: var(--border-strong, #c8c1bb);
 }
 
-/* Kanban Board */
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =============================================================================
+   KANBAN BOARD PIPELINE
+   ============================================================================= */
+
 .kanbanBoard {
   display: flex;
   gap: 16px;
@@ -176,6 +245,7 @@
   flex-direction: column;
 }
 
+.columnHeader,
 .kanbanColumnHeader {
   display: flex;
   justify-content: space-between;
@@ -184,14 +254,16 @@
   padding: 0 4px;
 }
 
+.columnTitle,
 .kanbanColumnTitle {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text, #111111);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
+.columnCount,
 .kanbanCardCount {
   font-size: 12px;
   font-weight: 600;
@@ -201,6 +273,7 @@
   border-radius: 12px;
 }
 
+.oppCard,
 .kanbanCard {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, #ded9d4);
@@ -211,40 +284,90 @@
   transition: all 0.15s ease;
 }
 
+.oppCard:hover,
 .kanbanCard:hover {
-  border-color: var(--text, #111111);
+  border-color: var(--border-strong, #c8c1bb);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
 }
 
+.oppCardDomain,
 .cardDomain {
   font-size: 15px;
   font-weight: 600;
   color: var(--text, #111111);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   word-break: break-all;
 }
 
+.oppCardType,
 .cardType {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary, #5f5b58);
+  margin-bottom: 10px;
+  display: inline-block;
+  background: var(--surface-soft, #fbf8f5);
+  border: 1px solid var(--border, #ded9d4);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 999px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.oppCardMetrics {
+  display: flex;
+  gap: 12px;
   font-size: 12px;
   color: var(--text-secondary, #5f5b58);
   margin-bottom: 12px;
-  display: inline-block;
-  background: #f0ece9;
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: var(--surface-soft, #fbf8f5);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ded9d4);
 }
 
+.oppCardActions,
 .cardActions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-  padding-top: 12px;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--border, #ded9d4);
 }
 
+.cardActionButton {
+  height: 30px;
+  padding: 0 12px;
+  background: var(--surface, #ffffff);
+  color: var(--text, #111111);
+  border: 1px solid var(--border, #ded9d4);
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  width: 100%;
+}
+
+.cardActionButton:hover:not(:disabled) {
+  background: var(--surface-soft, #fbf8f5);
+  border-color: var(--border-strong, #c8c1bb);
+}
+
+.cardActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .actionLink {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text, #111111);
   background: none;
@@ -253,30 +376,45 @@
   padding: 0;
   text-decoration: underline;
   text-underline-offset: 2px;
+  font-family: inherit;
 }
 
 .dangerLink {
-  color: #e53e3e;
+  color: var(--error, #c66f6f);
+}
+
+.dangerLink:hover {
+  color: #a02c2c;
 }
 
 .statusSelect {
   font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm, 10px);
   border: 1px solid var(--border, #ded9d4);
   background: var(--surface, #ffffff);
   color: var(--text, #111111);
   cursor: pointer;
   outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
 }
 
-/* Table */
+.statusSelect:focus {
+  border-color: var(--text, #111111);
+}
+
+/* =============================================================================
+   TABLES & BADGES (ACQUIRED BACKLINKS & CAMPAIGNS)
+   ============================================================================= */
+
 .tableContainer {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, #ded9d4);
   border-radius: var(--radius-xl, 32px);
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  margin-bottom: 32px;
 }
 
 .table {
@@ -288,10 +426,10 @@
 .table th {
   padding: 16px 24px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary, #5f5b58);
+  font-weight: 700;
+  color: var(--text-muted, #8b8580);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
   border-bottom: 1px solid var(--border, #ded9d4);
   background: var(--surface-soft, #fbf8f5);
 }
@@ -301,13 +439,162 @@
   font-size: 14px;
   color: var(--text, #111111);
   border-bottom: 1px solid var(--border, #ded9d4);
+  vertical-align: middle;
 }
 
 .table tr:last-child td {
   border-bottom: none;
 }
 
-/* Modal */
+.table tr:hover td {
+  background: var(--surface-soft, #fbf8f5);
+}
+
+.tableActionButton {
+  height: 32px;
+  padding: 0 14px;
+  background: var(--surface, #ffffff);
+  color: var(--text, #111111);
+  border: 1px solid var(--border, #ded9d4);
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tableActionButton:hover:not(:disabled) {
+  background: var(--surface-soft, #fbf8f5);
+  border-color: var(--border-strong, #c8c1bb);
+}
+
+.tableActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tableLink {
+  color: var(--text, #111111);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  word-break: break-all;
+  transition: color 0.15s ease;
+}
+
+.tableLink:hover {
+  color: #555555;
+}
+
+.tableDomain {
+  font-weight: 600;
+  color: var(--text, #111111);
+}
+
+.tableTimestamp {
+  font-size: 13px;
+  color: var(--text-secondary, #5f5b58);
+  white-space: nowrap;
+}
+
+.tableErrorMessage {
+  font-size: 11px;
+  color: var(--error, #c66f6f);
+  max-width: 180px;
+  word-wrap: break-word;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.modalNote {
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-secondary, #5f5b58);
+  line-height: 1.5;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--surface-soft, #fbf8f5);
+  color: var(--text-secondary, #5f5b58);
+  border: 1px solid var(--border, #ded9d4);
+}
+
+.badgeActive,
+.badgeVerified {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #edf7ee;
+  color: #2e6b3b;
+  border: 1px solid #b6e2be;
+}
+
+.badgeInactive {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--error-soft, #faecec);
+  color: #8a2727;
+  border: 1px solid var(--error, #c66f6f);
+}
+
+.badgeWarning {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde047;
+}
+
+.badgeNeutral {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface-soft, #fbf8f5);
+  color: var(--text-secondary, #5f5b58);
+  border: 1px solid var(--border, #ded9d4);
+}
+
+/* =============================================================================
+   MODALS & FORMS
+   ============================================================================= */
+
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -320,6 +607,7 @@
   justify-content: center;
   z-index: 100;
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   padding: 16px;
 }
 
@@ -328,10 +616,11 @@
   border-radius: var(--radius-xl, 32px);
   padding: clamp(24px, 4vw, 36px);
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border, #ded9d4);
 }
 
 .modalHeader {
@@ -345,6 +634,7 @@
   font-size: 20px;
   font-weight: 700;
   color: var(--text, #111111);
+  margin: 0;
 }
 
 .closeButton {
@@ -353,6 +643,14 @@
   font-size: 24px;
   color: var(--text-secondary, #5f5b58);
   cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.closeButton:hover {
+  color: var(--text, #111111);
 }
 
 .formGroup {
@@ -367,6 +665,7 @@
   margin-bottom: 8px;
 }
 
+.input,
 .formInput,
 .formSelect {
   width: 100%;
@@ -382,6 +681,7 @@
   transition: border-color 0.15s ease;
 }
 
+.input:focus,
 .formInput:focus,
 .formSelect:focus {
   border-color: var(--text, #111111);
@@ -391,17 +691,21 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 32px;
+  margin-top: 28px;
 }
 
+/* =============================================================================
+   NOTIFICATIONS, EMPTY STATES & SPINNER
+   ============================================================================= */
+
 .errorMessage {
-  background: #fef2f2;
-  color: #991b1b;
-  padding: 12px 16px;
-  border-radius: 8px;
+  background: var(--error-soft, #faecec);
+  color: #8a2727;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm, 10px);
   font-size: 14px;
-  margin-bottom: 20px;
-  border: 1px solid #fecaca;
+  margin-bottom: 24px;
+  border: 1px solid var(--error, #c66f6f);
 }
 
 .emptyState {
@@ -424,8 +728,21 @@
   font-size: 15px;
   color: var(--text-secondary, #5f5b58);
   margin-bottom: 24px;
-  max-width: 400px;
+  max-width: 440px;
   margin-left: auto;
   margin-right: auto;
   line-height: 1.5;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
