@@ -30,7 +30,6 @@ export default function Footer() {
 
             <div className={styles.footerCol}>
               <span className={styles.colTitle}>Company</span>
-              <Link href="/contact" className={styles.colLink}>Contact</Link>
               <Link href="/terms" className={styles.colLink}>Terms of Service</Link>
               <Link href="/privacy" className={styles.colLink}>Privacy Policy</Link>
             </div>

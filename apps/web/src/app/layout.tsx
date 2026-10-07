@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
   preload: false,
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rankautonomous.com';
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rankautonomous.vercel.app';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -56,6 +56,9 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+  },
+  alternates: {
+    canonical: '/',
   },
 };
 

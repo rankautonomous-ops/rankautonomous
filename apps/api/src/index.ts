@@ -9,6 +9,7 @@ import websiteRouter from './routes/website';
 import backlinksRouter from './routes/backlinks';
 import competitorsRouter from './routes/competitors';
 import integrationsRouter from './routes/integrations';
+import publicRouter from './routes/public';
 import { isConfigured } from './lib/env';
 
 const app = express();
@@ -60,6 +61,7 @@ import cmsRouter from './routes/cms';
 import adminRouter from './routes/admin';
 
 app.use('/api/admin', adminRouter);
+app.use('/api/public', publicRouter);
 app.use('/api', userRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/websites', websiteRouter);
