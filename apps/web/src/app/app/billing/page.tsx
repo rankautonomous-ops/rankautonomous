@@ -22,7 +22,7 @@ interface SubscriptionData {
   createdAt: string;
 }
 
-type BillingState = 'LOADING' | 'SYNCING' | 'ACTIVE' | 'INACTIVE' | 'ERROR';
+type BillingState = 'LOADING' | 'SYNCING' | 'ACTIVE' | 'TRIALING' | 'INACTIVE' | 'PAUSED' | 'ERROR';
 
 const MAX_SYNC_ATTEMPTS = 6;
 const SYNC_INTERVAL_MS = 1500;
@@ -40,6 +40,7 @@ function BillingContent() {
     isCheckoutReturn ? 'SYNCING' : 'LOADING'
   );
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+  const [trialData, setTrialData] = useState<{ trialActive: boolean; trialStartedAt: string | null; trialEndsAt: string | null; isPaused: boolean } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncAttempt, setSyncAttempt] = useState(1);
@@ -85,14 +86,30 @@ function BillingContent() {
         const isEntitledActive =
           Boolean(data.hasActiveSubscription) ||
           fetchedSub?.status === 'ACTIVE' ||
-          fetchedSub?.status === 'TRIALING';
+          fetchedSub?.status === 'TRIALING' ||
+          (data.trialActive && data.trialEndsAt && new Date(data.trialEndsAt).getTime() > Date.now());
 
         if (!isMountedRef.current) return;
 
-        if (isEntitledActive && fetchedSub) {
+        setTrialData({
+          trialActive: data.trialActive,
+          trialStartedAt: data.trialStartedAt,
+          trialEndsAt: data.trialEndsAt,
+          isPaused: data.isPaused,
+        });
+
+        if (data.isPaused) {
+          setSubscription(fetchedSub);
+          setBillingState('PAUSED');
+        } else if (isEntitledActive) {
           // Authoritative ACTIVE subscription verified
           setSubscription(fetchedSub);
-          setBillingState('ACTIVE');
+          if (data.trialActive && !fetchedSub) {
+            setBillingState('TRIALING');
+          } else {
+            setBillingState('ACTIVE');
+          }
+          
           if (isCheckoutReturn) {
             setShowVerifiedBanner(true);
           }
@@ -392,9 +409,135 @@ function BillingContent() {
       )}
 
       {/* =========================================================================
-          STATE 4: INACTIVE (No active subscription)
+          STATE TRIALING
           ========================================================================= */}
-      {billingState === 'INACTIVE' && (
+      {billingState === 'TRIALING' && trialData && (
+        <div>
+          {/* Verified Activation Banner */}
+          {showVerifiedBanner && (
+            <div
+              style={{
+                background: '#edf7ee',
+                border: '1px solid #b6e2be',
+                color: '#2e6b3b',
+                padding: '16px 20px',
+                borderRadius: 'var(--radius-sm, 8px)',
+                marginBottom: '24px',
+                fontSize: '15px',
+                lineHeight: '1.5',
+              }}
+            >
+              🎉 <strong>Trial Activated!</strong> Thank you for starting your RankAutonomous trial. You have full access for 3 days.
+            </div>
+          )}
+
+          <div className={styles.card}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px',
+                marginBottom: '28px',
+              }}
+            >
+              <div>
+                <span className={styles.statLabel}>Current Plan</span>
+                <h2
+                  style={{
+                    fontSize: '26px',
+                    fontWeight: 700,
+                    color: 'var(--text)',
+                    margin: '4px 0 0 0',
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  3-Day Trial
+                </h2>
+              </div>
+              <span
+                style={{
+                  background: '#fef3c7',
+                  border: '1px solid #fde68a',
+                  color: '#92400e',
+                  padding: '6px 16px',
+                  borderRadius: 'var(--radius-pill, 9999px)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                ACTIVE TRIAL
+              </span>
+            </div>
+
+            <div className={styles.infoGrid} style={{ marginBottom: '32px' }}>
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Pricing Rate</span>
+                <span className={styles.infoValue}>
+                  $1 paid
+                </span>
+              </div>
+
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Trial Started At</span>
+                <span className={styles.infoValue}>
+                  {trialData.trialStartedAt
+                    ? new Date(trialData.trialStartedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'Active'}
+                </span>
+              </div>
+
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Trial Ends At</span>
+                <span className={styles.infoValue}>
+                  {trialData.trialEndsAt
+                    ? new Date(trialData.trialEndsAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'Active'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '40px', padding: '24px', background: 'var(--surface-soft, #f4eee9)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>Ready to subscribe?</h3>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>Choose a plan below to keep your RankAutonomous engine running after your trial ends.</p>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleStartCheckout('monthly')}
+                  disabled={actionLoading}
+                  className={styles.secondaryButton}
+                >
+                  {actionLoading ? 'Connecting...' : 'Subscribe Monthly ($149/mo)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartCheckout('annual')}
+                  disabled={actionLoading}
+                  className={styles.primaryButton}
+                >
+                  {actionLoading ? 'Connecting...' : 'Subscribe Annually ($1,188/yr)'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          STATE INACTIVE or PAUSED
+          ========================================================================= */}
+      {(billingState === 'INACTIVE' || billingState === 'PAUSED') && (
         <div>
           <div
             className={styles.card}
@@ -405,7 +548,7 @@ function BillingContent() {
             }}
           >
             <h2 className={styles.cardTitle} style={{ color: '#8c423d' }}>
-              <span>⚠️</span> Subscription Required
+              <span>⚠️</span> {billingState === 'PAUSED' ? 'Trial Expired - Account Paused' : 'Subscription Required'}
             </h2>
             <p
               style={{
@@ -415,7 +558,9 @@ function BillingContent() {
                 margin: '8px 0 0 0',
               }}
             >
-              Your account does not have an active plan. Select a billing option below to unlock automated crawls, daily SEO articles, and keyword strategy.
+              {billingState === 'PAUSED' 
+                ? 'Your 3-day trial has ended. Select a billing option below to reactivate your account and unlock automated crawls, daily SEO articles, and keyword strategy.'
+                : 'Your account does not have an active plan. Select a billing option below to unlock automated crawls, daily SEO articles, and keyword strategy.'}
             </p>
           </div>
 

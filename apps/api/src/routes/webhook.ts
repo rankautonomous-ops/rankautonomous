@@ -69,7 +69,21 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         const plan = session.metadata?.plan || 'monthly';
         const interval = session.metadata?.interval || (plan === 'annual' ? 'year' : 'month');
 
-        if (userId && stripeSubscriptionId) {
+        if (plan === 'trial' && userId && session.payment_status === 'paid') {
+          // create/update the trial state
+          const now = new Date();
+          const trialEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              trialActive: true,
+              trialStartedAt: now,
+              trialEndsAt,
+              isPaused: false, // Ensure they are active immediately
+            },
+          });
+          console.log(`[Stripe Webhook] Started trial for user ${userId}`);
+        } else if (userId && stripeSubscriptionId) {
           const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
           const { currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd } = extractPeriodDates(sub);
 
@@ -97,6 +111,14 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
               cancelAtPeriodEnd,
             },
           });
+
+          // Subscription purchased, clear pause state if active
+          if (sub.status === 'active' || sub.status === 'trialing') {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { isPaused: false },
+            });
+          }
 
           console.log(`[Stripe Webhook] Synchronized subscription ${stripeSubscriptionId} for user ${userId}`);
         }
@@ -164,6 +186,14 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
               cancelAtPeriodEnd,
             },
           });
+
+          if (status === 'active' || status === 'trialing') {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { isPaused: false },
+            });
+          }
+
           console.log(`[Stripe Webhook] Updated subscription ${stripeSubscriptionId} status to "${status}"`);
         } else {
           console.warn(`[Stripe Webhook] Could not resolve userId for subscription ${stripeSubscriptionId}`);

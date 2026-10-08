@@ -22,53 +22,83 @@ router.post('/create-checkout-session', requireAuth, async (req: Request, res: R
     const user = req.user!;
     const { plan } = req.body;
 
-    if (!plan || (plan !== 'monthly' && plan !== 'annual')) {
+    if (!plan || (plan !== 'monthly' && plan !== 'annual' && plan !== 'trial')) {
       res.status(400).json({
         error: 'Bad Request',
-        message: 'Invalid plan selection. Expected "monthly" or "annual".',
+        message: 'Invalid plan selection. Expected "monthly", "annual", or "trial".',
       });
       return;
     }
 
-    const priceInfo = getPriceIdForPlan(plan);
-    if (!priceInfo || !priceInfo.priceId) {
-      res.status(400).json({
-        error: 'Configuration Error',
-        message: `Stripe Price ID for plan "${plan}" is not configured on the server.`,
-      });
-      return;
-    }
-
-    // Resolve or provision Stripe customer
     const stripeCustomerId = await getOrCreateStripeCustomer(user);
 
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceInfo.priceId,
-          quantity: 1,
+    let sessionParams: Stripe.Checkout.SessionCreateParams;
+
+    if (plan === 'trial') {
+      sessionParams = {
+        customer: stripeCustomerId,
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'RankAutonomous 3-Day Trial',
+                description: 'Full access to RankAutonomous for 3 days',
+              },
+              unit_amount: 100, // $1.00 in cents
+            },
+            quantity: 1,
+          },
+        ],
+        success_url: `${getStripeAppUrl()}/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=trial`,
+        cancel_url: `${getStripeAppUrl()}/pricing?checkout=cancelled`,
+        client_reference_id: user.id,
+        metadata: {
+          userId: user.id,
+          plan: 'trial',
         },
-      ],
-      success_url: `${getStripeAppUrl()}/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${getStripeAppUrl()}/pricing?checkout=cancelled`,
-      client_reference_id: user.id,
-      metadata: {
-        userId: user.id,
-        plan,
-        interval: priceInfo.interval,
-      },
-      subscription_data: {
+      };
+    } else {
+      const priceInfo = getPriceIdForPlan(plan);
+      if (!priceInfo || !priceInfo.priceId) {
+        res.status(400).json({
+          error: 'Configuration Error',
+          message: `Stripe Price ID for plan "${plan}" is not configured on the server.`,
+        });
+        return;
+      }
+
+      sessionParams = {
+        customer: stripeCustomerId,
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceInfo.priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: `${getStripeAppUrl()}/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${getStripeAppUrl()}/pricing?checkout=cancelled`,
+        client_reference_id: user.id,
         metadata: {
           userId: user.id,
           plan,
           interval: priceInfo.interval,
         },
-      },
-    });
+        subscription_data: {
+          metadata: {
+            userId: user.id,
+            plan,
+            interval: priceInfo.interval,
+          },
+        },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.json({
       sessionId: session.id,
@@ -224,6 +254,13 @@ export async function syncStripeSubscriptionFromCheckoutSession(
     },
   });
 
+  if (sub.status === 'active' || sub.status === 'trialing') {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isPaused: false },
+    });
+  }
+
   console.log(`[Stripe Sync] Synchronized subscription ${sub.id} for user ${userId} from checkout session ${sessionId}`);
   return subscription;
 }
@@ -244,23 +281,53 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // Prioritize active or trialing subscriptions first
-    let subscription = await prisma.subscription.findFirst({
-      where: {
-        userId: user.id,
-        status: {
-          in: ['active', 'trialing', 'ACTIVE', 'TRIALING'],
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    // Fetch user to get trial and paused status
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        subscriptions: {
+          where: {
+            status: {
+              in: ['active', 'trialing', 'ACTIVE', 'TRIALING'],
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        }
+      }
     });
+
+    let subscription = dbUser?.subscriptions[0] || null;
 
     // If no active subscription and a sessionId is supplied, attempt direct session reconciliation
     if (!subscription && sessionId && sessionId.startsWith('cs_')) {
       try {
-        subscription = await syncStripeSubscriptionFromCheckoutSession(sessionId, user.id);
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        if (session.metadata?.plan === 'trial') {
+          // Sync trial state directly if paid
+          if (session.payment_status === 'paid' && dbUser) {
+            const now = new Date();
+            const trialEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                trialActive: true,
+                trialStartedAt: now,
+                trialEndsAt,
+                isPaused: false,
+              },
+            });
+            // Update dbUser state to reflect this right now
+            dbUser.trialActive = true;
+            dbUser.trialStartedAt = now;
+            dbUser.trialEndsAt = trialEndsAt;
+            dbUser.isPaused = false;
+          }
+        } else {
+          subscription = await syncStripeSubscriptionFromCheckoutSession(sessionId, user.id);
+        }
       } catch (syncErr: any) {
         console.warn(`[Subscription Sync Warning]: Failed to sync session ${sessionId}:`, syncErr.message);
       }
@@ -278,7 +345,14 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
       });
     }
 
-    const hasActive = isSubscriptionActive(subscription);
+    let hasActive = false;
+    if (dbUser && !dbUser.isPaused) {
+      if (isSubscriptionActive(subscription)) {
+        hasActive = true;
+      } else if (dbUser.trialActive && dbUser.trialEndsAt && new Date(dbUser.trialEndsAt).getTime() > Date.now()) {
+        hasActive = true;
+      }
+    }
 
     res.json({
       subscription: subscription
@@ -295,6 +369,10 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
           }
         : null,
       hasActiveSubscription: hasActive,
+      trialActive: dbUser?.trialActive || false,
+      trialStartedAt: dbUser?.trialStartedAt || null,
+      trialEndsAt: dbUser?.trialEndsAt || null,
+      isPaused: dbUser?.isPaused || false,
     });
   } catch (error: any) {
     console.error('[Subscription Fetch Error]:', error?.message || error);

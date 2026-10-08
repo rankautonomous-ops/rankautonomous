@@ -37,19 +37,39 @@ export function isSubscriptionActive(
  * Evaluates both lowercase and uppercase statuses deterministically.
  */
 export async function hasActiveSubscription(userId: string): Promise<boolean> {
-  const subscription = await prisma.subscription.findFirst({
-    where: {
-      userId,
-      status: {
-        in: ['active', 'trialing', 'ACTIVE', 'TRIALING'],
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      subscriptions: {
+        where: {
+          status: {
+            in: ['active', 'trialing', 'ACTIVE', 'TRIALING'],
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 1,
       },
-    },
-    orderBy: {
-      createdAt: 'desc',
     },
   });
 
-  return isSubscriptionActive(subscription);
+  if (!user) return false;
+
+  if (user.isPaused) {
+    return false;
+  }
+
+  const activeStripeSub = user.subscriptions[0];
+  if (isSubscriptionActive(activeStripeSub)) {
+    return true;
+  }
+
+  if (user.trialActive && user.trialEndsAt && new Date(user.trialEndsAt).getTime() > Date.now()) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

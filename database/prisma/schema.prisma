@@ -129,6 +129,12 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Trial state
+  trialActive    Boolean   @default(false)
+  trialStartedAt DateTime?
+  trialEndsAt    DateTime?
+  isPaused       Boolean   @default(false)
+
   // Relationships
   subscriptions  Subscription[]
   websites       Website[]

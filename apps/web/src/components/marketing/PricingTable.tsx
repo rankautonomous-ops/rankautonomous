@@ -15,12 +15,13 @@ interface PricingTableProps {
 export default function PricingTable({ userSession = false }: PricingTableProps) {
   const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<'paid' | 'trial' | false>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSelectPlan = async () => {
+  const handleSelectPlan = async (planOverride?: string) => {
     setError(null);
-    setLoading(true);
+    const selectedPlan = planOverride || billingCycle;
+    setLoading(planOverride === 'trial' ? 'trial' : 'paid');
 
     try {
       const supabase = createClient();
@@ -30,7 +31,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
 
       if (!session) {
         // Redirect guest user to signup with selected plan
-        router.push(`/signup?plan=${billingCycle}`);
+        router.push(`/signup?plan=${selectedPlan}`);
         return;
       }
 
@@ -43,7 +44,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          plan: billingCycle,
+          plan: selectedPlan,
         }),
       });
 
@@ -70,7 +71,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
           <button
             type="button"
             onClick={() => setBillingCycle('monthly')}
-            disabled={loading}
+            disabled={!!loading}
             className={`${styles.toggleButton} ${billingCycle === 'monthly' ? styles.toggleActive : ''}`}
           >
             Monthly
@@ -78,7 +79,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
           <button
             type="button"
             onClick={() => setBillingCycle('annual')}
-            disabled={loading}
+            disabled={!!loading}
             className={`${styles.toggleButton} ${billingCycle === 'annual' ? styles.toggleActive : ''}`}
           >
             Annual
@@ -172,11 +173,11 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
         <div className={styles.actionWrapper}>
           <button
             type="button"
-            onClick={handleSelectPlan}
-            disabled={loading}
+            onClick={() => handleSelectPlan()}
+            disabled={!!loading}
             className={styles.ctaButton}
           >
-            {loading ? (
+            {loading === 'paid' ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
                 <span>Connecting to Checkout...</span>
@@ -189,6 +190,38 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
           </button>
           <p className={styles.guaranteeText}>
             Secure Stripe checkout. No setup fees. 14-day money back guarantee.
+          </p>
+
+          <div style={{ margin: '24px 0', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+            <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>OR</span>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleSelectPlan('trial')}
+            disabled={!!loading}
+            className={styles.ctaButton}
+            style={{
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            {loading === 'trial' ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Connecting to Checkout...</span>
+              </>
+            ) : (
+              <>
+                <span>Try for $1 (3-Day Full Access) →</span>
+              </>
+            )}
+          </button>
+          <p className={styles.guaranteeText} style={{ marginTop: '8px' }}>
+            Get full RankAutonomous access for 3 days. Optional upgrade afterwards.
           </p>
         </div>
       </div>
