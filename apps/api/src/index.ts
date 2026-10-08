@@ -1,6 +1,7 @@
 import './lib/env'; // MUST be the first import to configure environment variables before routers
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import prisma from './lib/database';
 import userRouter from './routes/user';
 import billingRouter from './routes/billing';
@@ -15,6 +16,10 @@ import { isConfigured } from './lib/env';
 
 const app = express();
 const port = process.env.PORT || 4000;
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
