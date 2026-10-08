@@ -229,4 +229,9 @@
     grid-template-columns: 1fr;
     gap: 14px;
   }
+
+  .billingNote {
+    margin-bottom: 60px;
+    padding-bottom: 20px;
+  }
 }

@@ -592,7 +592,7 @@ export default function OnboardingWizardPage() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className={styles.responsiveGrid}>
                 <div className={styles.formGroup}>
                   <label htmlFor="industry" className={styles.label}>
                     Industry / Vertical

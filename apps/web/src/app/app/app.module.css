@@ -1102,3 +1102,15 @@
   border: 1px solid var(--border, #ded9d4);
 }
 
+.responsiveGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .responsiveGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
