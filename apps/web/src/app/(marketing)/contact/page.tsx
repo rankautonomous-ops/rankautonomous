@@ -18,7 +18,7 @@ export default function ContactPage() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px', maxWidth: '840px', margin: '0 auto' }}>
+      <div className={styles.responsiveCardsGrid} style={{ maxWidth: '840px', margin: '0 auto' }}>
         <div className={styles.contentBlock}>
           <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-soft)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', color: 'var(--text)' }}>
             <Mail size={24} />

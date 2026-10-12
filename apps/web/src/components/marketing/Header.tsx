@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import HeaderNav from './HeaderNav';
 import styles from './marketing.module.css';
 
 export default async function Header() {
@@ -14,30 +15,9 @@ export default async function Header() {
           <span className={styles.brandName}>RankAutonomous</span>
         </Link>
         
-        <nav className={styles.navigation}>
-          <Link href="/features" className={styles.navItem}>Features</Link>
-          <Link href="/how-it-works" className={styles.navItem}>How It Works</Link>
-          <Link href="/pricing" className={styles.navItem}>Pricing</Link>
-          <Link href="/faq" className={styles.navItem}>FAQ</Link>
-        </nav>
-
-        <div className={styles.actions}>
-          {session?.user ? (
-            <Link href="/app" className={styles.primaryAction}>
-              Open Workspace →
-            </Link>
-          ) : (
-            <>
-              <Link href="/login" className={styles.loginAction}>
-                Log in
-              </Link>
-              <Link href="/signup" className={styles.primaryAction}>
-                Start Growing →
-              </Link>
-            </>
-          )}
-        </div>
+        <HeaderNav sessionUser={!!session?.user} />
       </div>
     </header>
   );
 }
+

@@ -17,7 +17,7 @@ export default function HowItWorksPage() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '28px', maxWidth: '1100px', margin: '0 auto' }}>
+      <div className={styles.responsiveCardsGrid} style={{ maxWidth: '1100px', margin: '0 auto' }}>
         <div className={styles.contentBlock}>
           <div style={{ fontSize: '13px', fontWeight: '800', color: '#8c423d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>
             Stage 01

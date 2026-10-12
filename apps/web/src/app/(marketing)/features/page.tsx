@@ -19,8 +19,8 @@ export default function FeaturesPage() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1000px', margin: '0 auto' }}>
-        <div className={styles.contentBlock} style={{ display: 'flex', gap: '28px', alignItems: 'flex-start' }}>
-          <div style={{ padding: '12px', background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+        <div className={`${styles.contentBlock} ${styles.featureRow}`}>
+          <div style={{ padding: '12px', background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
             <LineChart size={32} color="var(--text)" />
           </div>
           <div>
@@ -33,8 +33,8 @@ export default function FeaturesPage() {
           </div>
         </div>
 
-        <div className={styles.contentBlock} style={{ display: 'flex', gap: '28px', alignItems: 'flex-start' }}>
-          <div style={{ padding: '12px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-md)' }}>
+        <div className={`${styles.contentBlock} ${styles.featureRow}`}>
+          <div style={{ padding: '12px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
             <Bot size={32} color="#8c423d" />
           </div>
           <div>
@@ -47,8 +47,8 @@ export default function FeaturesPage() {
           </div>
         </div>
 
-        <div className={styles.contentBlock} style={{ display: 'flex', gap: '28px', alignItems: 'flex-start' }}>
-          <div style={{ padding: '12px', background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+        <div className={`${styles.contentBlock} ${styles.featureRow}`}>
+          <div style={{ padding: '12px', background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
             <PenTool size={32} color="var(--text)" />
           </div>
           <div>
@@ -61,8 +61,8 @@ export default function FeaturesPage() {
           </div>
         </div>
 
-        <div className={styles.contentBlock} style={{ display: 'flex', gap: '28px', alignItems: 'flex-start' }}>
-          <div style={{ padding: '12px', background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+        <div className={`${styles.contentBlock} ${styles.featureRow}`}>
+          <div style={{ padding: '12px', background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', flexShrink: 0 }}>
             <LinkIcon size={32} color="var(--text)" />
           </div>
           <div>

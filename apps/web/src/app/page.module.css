@@ -10,12 +10,13 @@
 .hero {
   max-width: var(--container-max);
   margin: 0 auto;
-  padding: clamp(60px, 8vw, 120px) clamp(20px, 4vw, 64px) clamp(40px, 6vw, 80px);
+  padding: clamp(48px, 6vw, 120px) clamp(16px, 4vw, 64px) clamp(36px, 5vw, 80px);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
+  width: 100%;
 }
 
 .aiBadge {
@@ -27,28 +28,68 @@
   background: var(--accent-soft);
   border: 1px solid var(--accent);
   color: #8c423d;
-  font-size: 13px;
+  font-size: clamp(11px, 2.8vw, 13px);
   font-weight: 600;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+  max-width: 100%;
+  text-align: center;
 }
 
 .title {
-  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-size: clamp(2.2rem, 6.5vw, 5.5rem);
   font-weight: 700;
-  line-height: 0.96;
-  letter-spacing: -0.04em;
-  margin-bottom: 28px;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin-bottom: 24px;
   color: var(--text);
   max-width: 1100px;
+  width: 100%;
   text-transform: uppercase;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: clamp(2rem, 7vw, 3.25rem);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: clamp(1.75rem, 8.5vw, 2.35rem);
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    margin-bottom: 18px;
+  }
+}
+
+@media (max-width: 340px) {
+  .title {
+    font-size: 1.55rem;
+  }
 }
 
 .description {
-  font-size: clamp(1.1rem, 2vw, 1.35rem);
-  line-height: 1.55;
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+  line-height: 1.6;
   color: var(--text-secondary);
   max-width: 680px;
-  margin: 0 auto 40px auto;
+  width: 100%;
+  margin: 0 auto 36px auto;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 480px) {
+  .description {
+    font-size: 15px;
+    line-height: 1.55;
+    margin-bottom: 28px;
+  }
 }
 
 .ctaGroup {
@@ -57,7 +98,14 @@
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 72px;
+  margin-bottom: 56px;
+  width: 100%;
+}
+
+@media (max-width: 480px) {
+  .ctaGroup {
+    margin-bottom: 40px;
+  }
 }
 
 .primaryCta {
@@ -84,7 +132,7 @@
   color: var(--text);
   font-size: 16px;
   font-weight: 600;
-  padding: 16px 32px;
+  padding: 14px 28px;
   border-radius: var(--radius-sm);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -113,25 +161,35 @@
   text-align: left;
 }
 
+@media (max-width: 480px) {
+  .mockupContainer {
+    border-radius: var(--radius-lg);
+  }
+}
+
 .mockupHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 28px;
+  padding: clamp(12px, 2vw, 18px) clamp(14px, 3vw, 28px);
   border-bottom: 1px solid var(--border);
   background: var(--surface-soft);
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .mockupHeaderLeft {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .mockupDot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .mockupUrl {
@@ -139,6 +197,23 @@
   color: var(--text-muted);
   margin-left: 12px;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+  .mockupUrl {
+    font-size: 11px;
+    max-width: 200px;
+    margin-left: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .mockupUrl {
+    max-width: 140px;
+  }
 }
 
 .mockupBadge {
@@ -150,10 +225,11 @@
   color: #8c423d;
   padding: 4px 10px;
   border-radius: var(--radius-pill);
+  flex-shrink: 0;
 }
 
 .mockupBody {
-  padding: clamp(24px, 4vw, 40px);
+  padding: clamp(16px, 4vw, 40px);
 }
 
 .mockupTopGrid {
@@ -167,7 +243,7 @@
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 28px;
+  padding: clamp(16px, 3.5vw, 28px);
 }
 
 .mockupCardLabel {
@@ -182,12 +258,13 @@
 .mockupHealthScoreRow {
   display: flex;
   align-items: baseline;
-  gap: 16px;
+  gap: clamp(8px, 2vw, 16px);
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .mockupBigScore {
-  font-size: clamp(3rem, 5vw, 4.5rem);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
   font-weight: 800;
   color: var(--text);
   line-height: 1;
@@ -195,7 +272,7 @@
 }
 
 .mockupBigScoreTotal {
-  font-size: 20px;
+  font-size: clamp(16px, 3vw, 20px);
   color: var(--text-muted);
   font-weight: 500;
 }
@@ -214,29 +291,34 @@
 
 .mockupCategoryGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(6px, 1.5vw, 12px);
 }
 
 .mockupCatItem {
-  padding: 10px 14px;
+  padding: clamp(8px, 1.5vw, 10px) clamp(6px, 1.5vw, 14px);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .mockupCatName {
-  font-size: 11px;
+  font-size: clamp(9px, 1.5vw, 11px);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mockupCatVal {
-  font-size: 18px;
+  font-size: clamp(15px, 2.5vw, 18px);
   font-weight: 700;
   color: var(--text);
 }
@@ -244,21 +326,27 @@
 .mockupMetricsCol {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: clamp(10px, 2vw, 16px);
+}
+
+@media (max-width: 480px) {
+  .mockupMetricsCol {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mockupMetricBox {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: clamp(14px, 3vw, 20px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
 .mockupMetricValue {
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.03em;
@@ -276,7 +364,7 @@
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px 24px;
+  padding: clamp(14px, 3vw, 20px) clamp(14px, 3vw, 24px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -319,7 +407,7 @@
   max-width: var(--container-max);
   width: 100%;
   margin: 0 auto;
-  padding: clamp(60px, 8vw, 120px) clamp(20px, 4vw, 64px);
+  padding: clamp(48px, 6vw, 120px) clamp(16px, 4vw, 64px);
 }
 
 .sectionTag {
@@ -337,21 +425,25 @@
 }
 
 .sectionTitle {
-  font-size: clamp(2rem, 4vw, 3.75rem);
+  font-size: clamp(1.85rem, 4vw, 3.75rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
   color: var(--text);
   margin-bottom: 20px;
   text-transform: uppercase;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .sectionSubtitle {
-  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
   color: var(--text-secondary);
   max-width: 680px;
-  margin-bottom: 56px;
+  margin-bottom: clamp(32px, 5vw, 56px);
   line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Section 9: Problem Section - Split Editorial Layout */
@@ -377,7 +469,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 28px 32px;
+  padding: clamp(20px, 3.5vw, 28px) clamp(16px, 3.5vw, 32px);
   transition: all 0.2s ease;
 }
 
@@ -412,7 +504,7 @@
 /* Section 10: Product Philosophy (ANALYZE, CREATE, BUILD, GROW) */
 .philosophyGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 24px;
 }
 
@@ -420,11 +512,11 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 40px 32px;
+  padding: clamp(28px, 4vw, 40px) clamp(20px, 4vw, 32px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 320px;
+  min-height: auto;
   transition: all 0.25s ease;
 }
 
@@ -477,7 +569,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 44px;
+  padding: clamp(24px, 4vw, 44px);
 }
 
 .featureCardSmall {
@@ -485,7 +577,7 @@
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 44px;
+  padding: clamp(24px, 4vw, 44px);
 }
 
 .featureCardTitle {
@@ -505,7 +597,7 @@
 /* Section 12: How It Works Timeline */
 .timelineList {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 24px;
 }
 
@@ -513,7 +605,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 32px 28px;
+  padding: clamp(24px, 3.5vw, 32px) clamp(18px, 3.5vw, 28px);
 }
 
 .timelineNumber {
@@ -541,7 +633,7 @@
 /* Section 14: FAQ Grid */
 .faqGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 24px;
 }
 
@@ -549,7 +641,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 32px;
+  padding: clamp(20px, 3.5vw, 32px);
 }
 
 .faqQuestion {
@@ -571,7 +663,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: clamp(48px, 6vw, 88px) clamp(24px, 4vw, 64px);
+  padding: clamp(36px, 5vw, 88px) clamp(16px, 4vw, 64px);
   text-align: center;
   max-width: 1100px;
   margin: 0 auto clamp(60px, 8vw, 120px) auto;
@@ -579,12 +671,14 @@
 }
 
 .bottomCtaTitle {
-  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  font-size: clamp(1.85rem, 4vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text);
   margin-bottom: 16px;
   text-transform: uppercase;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .bottomCtaDesc {
@@ -600,7 +694,7 @@
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: clamp(40px, 6vw, 80px);
+  padding: clamp(28px, 5vw, 80px) clamp(16px, 4vw, 40px);
   margin-bottom: 40px;
 }
 
@@ -614,7 +708,7 @@
   list-style: none;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 16px;
   text-align: left;
   margin-top: 40px;
@@ -637,7 +731,7 @@
 /* Comparisons */
 .comparisonGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 32px;
 }
 
@@ -645,7 +739,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 40px;
+  padding: clamp(24px, 4vw, 40px);
   display: flex;
   flex-direction: column;
 }
@@ -689,7 +783,7 @@
 /* Integrations */
 .integrationsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
   gap: 20px;
 }
 
@@ -697,7 +791,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: clamp(16px, 3vw, 24px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -769,6 +863,24 @@
   }
 
   .comparisonGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .philosophyGrid,
+  .timelineList,
+  .aiSearchList {
+    grid-template-columns: 1fr;
+  }
+
+  .integrationsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 400px) {
+  .integrationsGrid {
     grid-template-columns: 1fr;
   }
 }

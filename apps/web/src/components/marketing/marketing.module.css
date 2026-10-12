@@ -13,6 +13,12 @@
   transition: all 0.2s ease;
 }
 
+@media (max-width: 640px) {
+  .headerWrapper {
+    padding: 12px 16px;
+  }
+}
+
 .headerContainer {
   max-width: var(--container-max-width, 1400px);
   margin: 0 auto;
@@ -20,6 +26,7 @@
   justify-content: space-between;
   align-items: center;
   height: 52px;
+  width: 100%;
 }
 
 .brandLink {
@@ -27,6 +34,8 @@
   align-items: center;
   gap: 10px;
   text-decoration: none;
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .brandMark {
@@ -41,6 +50,7 @@
   font-weight: 700;
   font-size: 16px;
   letter-spacing: -0.5px;
+  flex-shrink: 0;
 }
 
 .brandName {
@@ -48,6 +58,13 @@
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--text, #111111);
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .brandName {
+    font-size: 16px;
+  }
 }
 
 .navigation {
@@ -61,6 +78,7 @@
   font-weight: 500;
   color: var(--text-secondary, #5f5b58);
   transition: color 0.15s ease;
+  white-space: nowrap;
 }
 
 .navItem:hover {
@@ -80,6 +98,7 @@
   padding: 8px 14px;
   border-radius: var(--radius-sm, 10px);
   transition: background 0.15s ease;
+  white-space: nowrap;
 }
 
 .loginAction:hover {
@@ -97,6 +116,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .primaryAction:hover {
@@ -104,9 +124,141 @@
   transform: translateY(-1px);
 }
 
+/* Mobile Navigation Drawer & Hamburger Trigger */
+.mobileMenuButton {
+  display: none;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #ded9d4);
+  color: var(--text, #111111);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm, 10px);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mobileMenuButton:hover {
+  background: var(--surface-soft, #fbf8f5);
+  border-color: var(--border-strong, #c8c1bb);
+}
+
+.mobileDrawerBackdrop {
+  position: fixed;
+  top: 68px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(17, 17, 17, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 99;
+  animation: mobileFadeIn 0.2s ease-out;
+}
+
+.mobileDrawer {
+  background: var(--background, #f7f3ef);
+  border-bottom: 1px solid var(--border, #ded9d4);
+  padding: 20px 20px 28px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: mobileSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.mobileNavLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobileNavItem {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text, #111111);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 10px);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.mobileNavItem:hover,
+.mobileNavItem:active {
+  background: rgba(17, 17, 17, 0.05);
+}
+
+.mobileDivider {
+  height: 1px;
+  background: var(--border, #ded9d4);
+  margin: 4px 0;
+}
+
+.mobileActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobileLoginAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #111111);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #ded9d4);
+  border-radius: var(--radius-sm, 10px);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.mobileLoginAction:hover {
+  background: var(--surface-soft, #fbf8f5);
+}
+
+.mobilePrimaryAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--text, #111111);
+  border-radius: var(--radius-sm, 10px);
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.mobilePrimaryAction:hover {
+  opacity: 0.92;
+}
+
+@keyframes mobileFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mobileSlideDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 @media (max-width: 840px) {
-  .navigation {
+  .navigation,
+  .actions {
     display: none;
+  }
+
+  .mobileMenuButton {
+    display: flex;
   }
 }
 
@@ -251,41 +403,73 @@
   width: 100%;
 }
 
+@media (max-width: 640px) {
+  .pageContainer {
+    padding: 36px 16px 64px;
+  }
+}
+
 .pageHero {
   max-width: 900px;
   margin: 0 auto 64px;
   text-align: center;
 }
 
+@media (max-width: 640px) {
+  .pageHero {
+    margin-bottom: 36px;
+  }
+}
+
 .pageTitle {
-  font-size: clamp(2.4rem, 4vw, 3.8rem);
+  font-size: clamp(2rem, 5vw, 3.8rem);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.08;
   letter-spacing: -0.03em;
   color: var(--text, #111111);
   margin-bottom: 18px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+@media (max-width: 480px) {
+  .pageTitle {
+    font-size: clamp(1.75rem, 7.5vw, 2.4rem);
+    margin-bottom: 14px;
+  }
 }
 
 .pageSubtitle {
-  font-size: clamp(16px, 1.8vw, 20px);
+  font-size: clamp(15px, 1.8vw, 20px);
   color: var(--text-secondary, #5f5b58);
   line-height: 1.6;
   max-width: 680px;
   margin: 0 auto;
+  overflow-wrap: break-word;
 }
 
 .contentBlock {
   background: var(--surface, #ffffff);
   border: 1px solid var(--border, #ded9d4);
   border-radius: var(--radius-xl, 32px);
-  padding: clamp(28px, 4vw, 48px);
+  padding: clamp(20px, 4vw, 48px);
   box-shadow: var(--shadow-card);
+  width: 100%;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 480px) {
+  .contentBlock {
+    border-radius: var(--radius-lg, 24px);
+    padding: 20px 16px;
+  }
 }
 
 .prose {
   font-size: 16px;
   color: var(--text-secondary, #5f5b58);
   line-height: 1.7;
+  overflow-wrap: break-word;
 }
 
 .prose p {
@@ -299,8 +483,38 @@
   margin-top: 32px;
   margin-bottom: 12px;
   letter-spacing: -0.3px;
+  overflow-wrap: break-word;
 }
 
 .prose strong {
   color: var(--text, #111111);
 }
+
+.responsiveCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .responsiveCardsGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.featureRow {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .featureRow {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+

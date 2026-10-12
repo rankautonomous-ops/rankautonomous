@@ -245,3 +245,18 @@
     transform: rotate(360deg);
   }
 }
+
+@media (max-width: 640px) {
+  .authContainer {
+    padding: 24px 16px;
+  }
+
+  .authCard {
+    border-radius: var(--radius-lg, 24px);
+    padding: 28px 20px;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+}

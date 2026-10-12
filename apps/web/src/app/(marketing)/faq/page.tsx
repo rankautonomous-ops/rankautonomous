@@ -44,7 +44,7 @@ export default function FAQPage() {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', maxWidth: '1100px', margin: '0 auto' }}>
+      <div className={styles.responsiveCardsGrid} style={{ maxWidth: '1100px', margin: '0 auto' }}>
         {faqs.map((faq, idx) => (
           <div key={idx} className={styles.contentBlock} style={{ padding: '36px 32px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text)', marginBottom: '12px', letterSpacing: '-0.01em' }}>
