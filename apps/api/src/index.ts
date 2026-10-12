@@ -89,7 +89,7 @@ app.get('/health', async (req, res) => {
 });
 
 let server: any = null;
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.argv.some(a => a.includes('test'))) {
   server = app.listen(port, () => {
     console.log(`API Server running on port ${port}`);
     console.log(`[Config Status] Stripe Secret Key: ${isConfigured('STRIPE_SECRET_KEY') ? 'Configured' : 'Missing'}`);

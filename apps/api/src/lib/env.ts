@@ -26,9 +26,10 @@ export function loadEnvironment(forceReload = false): void {
     // 5. From __dirname of this file (apps/api/src/lib or apps/api/dist/lib -> 4 levels to root)
     path.resolve(__dirname, '../../../../.env'),
     path.resolve(__dirname, '../../../.env'),
-    path.resolve(__dirname, '../../.env'),
     path.resolve(__dirname, '../.env'),
   ];
+
+  const previousNodeEnv = process.env.NODE_ENV;
 
   for (const envPath of candidatePaths) {
     if (fs.existsSync(envPath)) {
@@ -38,6 +39,10 @@ export function loadEnvironment(forceReload = false): void {
 
   // Standard fallback
   dotenv.config({ override: true });
+
+  if (previousNodeEnv) {
+    process.env.NODE_ENV = previousNodeEnv;
+  }
 
   isInitialized = true;
 }

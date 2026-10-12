@@ -29,7 +29,9 @@ export default function Footer() {
             </div>
 
             <div className={styles.footerCol}>
-              <span className={styles.colTitle}>Company</span>
+              <span className={styles.colTitle}>Company &amp; Resources</span>
+              <Link href="/blog" className={styles.colLink}>Blog</Link>
+              <Link href="/contact" className={styles.colLink}>Contact Us</Link>
               <Link href="/terms" className={styles.colLink}>Terms of Service</Link>
               <Link href="/privacy" className={styles.colLink}>Privacy Policy</Link>
             </div>

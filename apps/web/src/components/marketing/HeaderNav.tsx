@@ -21,6 +21,7 @@ export default function HeaderNav({ sessionUser }: HeaderNavProps) {
         <Link href="/features" className={styles.navItem}>Features</Link>
         <Link href="/how-it-works" className={styles.navItem}>How It Works</Link>
         <Link href="/pricing" className={styles.navItem}>Pricing</Link>
+        <Link href="/blog" className={styles.navItem}>Blog</Link>
         <Link href="/faq" className={styles.navItem}>FAQ</Link>
       </nav>
 
@@ -71,6 +72,9 @@ export default function HeaderNav({ sessionUser }: HeaderNavProps) {
               </Link>
               <Link href="/pricing" className={styles.mobileNavItem} onClick={closeMenu}>
                 Pricing
+              </Link>
+              <Link href="/blog" className={styles.mobileNavItem} onClick={closeMenu}>
+                Blog
               </Link>
               <Link href="/faq" className={styles.mobileNavItem} onClick={closeMenu}>
                 FAQ
