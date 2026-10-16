@@ -41,7 +41,9 @@ services:
       - key: API_URL
         value: https://rankautonomous-api.onrender.com
       - key: NEXT_PUBLIC_APP_URL
-        value: https://rankautonomous.vercel.app
+        value: https://www.rankautonomous.com
+      - key: CORS_ORIGIN
+        value: https://www.rankautonomous.com,https://rankautonomous.com,https://rankautonomous.vercel.app
       - key: PORT
         value: 4000
 
