@@ -137,8 +137,22 @@ export function validateAndParseAiKeywords(
   let cleaned = rawContent.trim();
 
   // Strip accidental markdown code blocks if present (```json ... ```)
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  if (cleaned.includes('```')) {
+    const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      cleaned = codeBlockMatch[1].trim();
+    } else {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    }
+  }
+
+  // If not starting with '{' or '[', attempt to locate outer JSON boundaries
+  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1).trim();
+    }
   }
 
   let parsed: any;
@@ -152,7 +166,7 @@ export function validateAndParseAiKeywords(
     throw new AiServiceValidationError('AI output must be a JSON object.', 502);
   }
 
-  const rawList = parsed.suggestions;
+  const rawList = Array.isArray(parsed) ? parsed : parsed.suggestions;
   if (!Array.isArray(rawList)) {
     throw new AiServiceValidationError('AI output JSON must contain a "suggestions" array.', 502);
   }

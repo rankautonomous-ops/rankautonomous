@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { MessageSquare, X, Send, Bot } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 import styles from './AiSupportWidget.module.css';
 
 interface Message {
@@ -52,45 +53,47 @@ export default function AiSupportWidget() {
     setIsLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const token = typeof window !== 'undefined' ? localStorage.getItem('supabase.auth.token') : null;
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      if (token) {
-        try {
-          const parsed = JSON.parse(token);
-          if (parsed?.currentSession?.access_token) {
-             headers['Authorization'] = `Bearer ${parsed.currentSession.access_token}`;
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      const res = await fetch(`${apiUrl}/api/support/chat`, {
+      const res = await apiFetch('/api/support/chat', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.content }))
-        })
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+        }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Support service returned an unreadable response. Please try again.');
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to get a response.');
+        throw new Error(data.error || data.message || `Support service returned status ${res.status}.`);
+      }
+
+      if (!data.reply) {
+        throw new Error('No reply received from support assistant.');
       }
 
       setMessages([...newMessages, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.reply
+        content: data.reply,
       }]);
-
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      console.error('[AI Support Chat Error]:', err);
+      const isNetworkErr =
+        err?.name === 'TypeError' ||
+        err?.message?.toLowerCase().includes('fetch') ||
+        err?.message?.toLowerCase().includes('network');
+      setError(
+        isNetworkErr
+          ? 'Unable to connect to RankAutonomous support. Please check your internet connection or try again shortly.'
+          : (err?.message || 'An error occurred. Please try again.')
+      );
     } finally {
       setIsLoading(false);
     }

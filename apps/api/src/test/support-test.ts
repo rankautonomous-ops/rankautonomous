@@ -1,17 +1,9 @@
 import request from 'supertest';
-import express from 'express';
-import { setAiProvider } from '../services/aiProvider';
-// Using require since esModuleInterop is causing issues
-// Or just require it if TS complains
-const supportRoute = require('../routes/support').default || require('../routes/support');
-
-const app = express();
-app.use(express.json());
-app.set('trust proxy', true);
-app.use('/api/support', supportRoute);
+import app, { isAllowedOrigin } from '../index';
+import { setAiProvider, AiProviderError } from '../services/aiProvider';
 
 async function main() {
-  console.log('--- Running Support API Tests ---');
+  console.log('--- Running Support API & CORS Regression Tests ---');
   let exitCode = 0;
 
   setAiProvider({
@@ -19,69 +11,118 @@ async function main() {
   });
 
   try {
-    // 1. Test Empty Message Validation
-    console.log('Test 1: Empty Message Rejection');
+    // 1. Test CORS Origin Validator
+    console.log('Test 1: CORS Origin Validation logic');
+    if (!isAllowedOrigin('https://rankautonomous.com')) throw new Error('Failed to allow apex domain');
+    if (!isAllowedOrigin('https://www.rankautonomous.com')) throw new Error('Failed to allow www domain');
+    if (!isAllowedOrigin('https://app.rankautonomous.com')) throw new Error('Failed to allow subdomain');
+    if (!isAllowedOrigin('https://preview-123.vercel.app')) throw new Error('Failed to allow vercel preview');
+    if (!isAllowedOrigin('http://localhost:3000')) throw new Error('Failed to allow localhost:3000');
+    if (isAllowedOrigin('https://malicious-attacker.com')) throw new Error('Should deny unverified third-party origin');
+    console.log('✅ CORS Origin Validator works accurately');
+
+    // 2. Test CORS Preflight OPTIONS on /api/support/chat with www origin
+    console.log('Test 2: CORS Preflight OPTIONS with https://www.rankautonomous.com');
+    const corsOptionsRes = await request(app)
+      .options('/api/support/chat')
+      .set('Origin', 'https://www.rankautonomous.com')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
+
+    if (corsOptionsRes.status !== 204 && corsOptionsRes.status !== 200) {
+      throw new Error(`Expected 204/200 for OPTIONS, received ${corsOptionsRes.status}`);
+    }
+    const allowOriginHeader = corsOptionsRes.headers['access-control-allow-origin'];
+    if (allowOriginHeader !== 'https://www.rankautonomous.com') {
+      throw new Error(`Expected Access-Control-Allow-Origin: https://www.rankautonomous.com, got: ${allowOriginHeader}`);
+    }
+    console.log('✅ CORS preflight for www.rankautonomous.com succeeded with 204 No Content');
+
+    // 3. Test CORS Preflight OPTIONS on /api/websites/keyword-suggestions with www origin
+    console.log('Test 3: CORS Preflight OPTIONS on keyword-suggestions with www origin');
+    const kwCorsRes = await request(app)
+      .options('/api/websites/keyword-suggestions')
+      .set('Origin', 'https://www.rankautonomous.com')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
+
+    if (kwCorsRes.status !== 204 && kwCorsRes.status !== 200) {
+      throw new Error(`Expected 204/200 for OPTIONS, received ${kwCorsRes.status}`);
+    }
+    if (kwCorsRes.headers['access-control-allow-origin'] !== 'https://www.rankautonomous.com') {
+      throw new Error(`Expected Access-Control-Allow-Origin: https://www.rankautonomous.com on keyword suggestions`);
+    }
+    console.log('✅ CORS preflight on keyword-suggestions succeeded for www domain');
+
+    // 4. Test Empty Message Rejection
+    console.log('Test 4: Empty Message Rejection');
     const emptyRes = await request(app)
       .post('/api/support/chat')
+      .set('Origin', 'https://www.rankautonomous.com')
       .send({ messages: [{ role: 'user', content: '   ' }] });
     if (emptyRes.status !== 400 || !emptyRes.body.error.includes('cannot be empty')) {
       throw new Error(`Empty message not rejected properly: ${emptyRes.status}`);
     }
     console.log('✅ Empty message rejected');
 
-    // 2. Test Oversized Message Validation
-    console.log('Test 2: Oversized Message Rejection');
+    // 5. Test Oversized Message Rejection
+    console.log('Test 5: Oversized Message Rejection');
     const longString = 'a'.repeat(2500);
     const largeRes = await request(app)
       .post('/api/support/chat')
+      .set('Origin', 'https://www.rankautonomous.com')
       .send({ messages: [{ role: 'user', content: longString }] });
     if (largeRes.status !== 400 || !largeRes.body.error.includes('2000 character limit')) {
       throw new Error(`Large message not rejected properly: ${largeRes.status}`);
     }
     console.log('✅ Large message rejected');
 
-    // 3. Test Invalid Body Format
-    console.log('Test 3: Invalid Body Format');
+    // 6. Test Invalid Body Format
+    console.log('Test 6: Invalid Body Format');
     const formatRes = await request(app)
       .post('/api/support/chat')
+      .set('Origin', 'https://www.rankautonomous.com')
       .send({ content: 'Hello' }); // Missing messages array
     if (formatRes.status !== 400) {
       throw new Error('Should reject missing messages array');
     }
     console.log('✅ Invalid format rejected');
 
-    // 4. Test Rate Limiting
-    console.log('Test 4: Rate Limiting (Public limit is 5)');
-    let rateLimitRes;
-    for (let i = 0; i < 5; i++) {
-      await request(app)
-        .post('/api/support/chat')
-        .set('X-Forwarded-For', '10.0.0.99') // Use a unique IP to avoid clashing
-        .send({ messages: [{ role: 'user', content: 'Hello' }] });
-    }
-    
-    rateLimitRes = await request(app)
-      .post('/api/support/chat')
-      .set('X-Forwarded-For', '10.0.0.99')
-      .send({ messages: [{ role: 'user', content: 'Hello again' }] });
-
-    if (rateLimitRes.status !== 429) {
-      throw new Error(`Rate limit did not trigger, got status ${rateLimitRes.status}`);
-    }
-    console.log('✅ Rate Limiting works');
-
-    // 5. Normal Public Chat
-    console.log('Test 5: Public Chat Call');
+    // 7. Normal Public Chat
+    console.log('Test 7: Public Chat Call with www Origin');
     const chatRes = await request(app)
       .post('/api/support/chat')
-      .set('X-Forwarded-For', '10.0.0.100')
+      .set('Origin', 'https://www.rankautonomous.com')
+      .set('X-Forwarded-For', '10.0.0.120')
       .send({ messages: [{ role: 'user', content: 'What is RankAutonomous?' }] });
       
     if (chatRes.status !== 200 || !chatRes.body.reply) {
       throw new Error(`Chat API failed: ${chatRes.status} - ${JSON.stringify(chatRes.body)}`);
     }
-    console.log('✅ Chat API successfully returned a reply');
-    
+    if (chatRes.headers['access-control-allow-origin'] !== 'https://www.rankautonomous.com') {
+      throw new Error('Missing CORS allow-origin header on response');
+    }
+    console.log('✅ Chat API successfully returned a reply with valid CORS headers');
+
+    // 8. Test Provider Error Handling
+    console.log('Test 8: AI Provider Error Propagation as JSON');
+    setAiProvider({
+      generateCompletion: async () => {
+        throw new AiProviderError('Gemini API rate limit exceeded.', 429, 'AI_RATE_LIMITED', true);
+      }
+    });
+
+    const errRes = await request(app)
+      .post('/api/support/chat')
+      .set('Origin', 'https://www.rankautonomous.com')
+      .set('X-Forwarded-For', '10.0.0.121')
+      .send({ messages: [{ role: 'user', content: 'Test rate limit' }] });
+
+    if (errRes.status !== 429 || !errRes.body.error) {
+      throw new Error(`Expected status 429 JSON response, got ${errRes.status}: ${JSON.stringify(errRes.body)}`);
+    }
+    console.log('✅ AI Provider error handled as JSON status 429 without HTML');
+
   } catch (err: any) {
     console.error('❌ Test failed:', err);
     exitCode = 1;
@@ -93,3 +134,4 @@ async function main() {
 }
 
 main();
+

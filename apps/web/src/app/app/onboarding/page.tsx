@@ -351,8 +351,6 @@ export default function OnboardingWizardPage() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
       const payload = {
         websiteUrl: url.trim(),
         businessName: name.trim() || 'My Website',
@@ -367,7 +365,7 @@ export default function OnboardingWizardPage() {
         existingKeywords: primaryKeywords,
       };
 
-      const res = await apiFetch(`${apiUrl}/api/websites/keyword-suggestions`, {
+      const res = await apiFetch('/api/websites/keyword-suggestions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -383,7 +381,7 @@ export default function OnboardingWizardPage() {
           setSubscriptionRequired(true);
           setAiError('An active RankAutonomous subscription is required to generate AI keyword suggestions.');
         } else {
-          setAiError(data.message || "We couldn't generate keyword suggestions right now. Please try again.");
+          setAiError(data.message || data.error || "We couldn't generate keyword suggestions right now. Please try again.");
         }
         setIsGeneratingAi(false);
         return;
@@ -395,8 +393,17 @@ export default function OnboardingWizardPage() {
       } else {
         setAiError("We couldn't generate keyword suggestions right now. Please try again.");
       }
-    } catch {
-      setAiError("We couldn't generate keyword suggestions right now. Please try again.");
+    } catch (err: any) {
+      console.error('[Generate AI Keywords Error]:', err);
+      const isNetworkErr =
+        err?.name === 'TypeError' ||
+        err?.message?.toLowerCase().includes('fetch') ||
+        err?.message?.toLowerCase().includes('network');
+      setAiError(
+        isNetworkErr
+          ? 'Unable to reach the server. Please check your internet connection and try again.'
+          : (err?.message || "We couldn't generate keyword suggestions right now. Please try again.")
+      );
     } finally {
       setIsGeneratingAi(false);
     }
@@ -437,8 +444,6 @@ export default function OnboardingWizardPage() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
       const combinedKeywords = getCombinedKeywords().slice(0, 50);
 
       const payload = {
@@ -456,7 +461,7 @@ export default function OnboardingWizardPage() {
         platform,
       };
 
-      const res = await apiFetch(`${apiUrl}/api/websites`, {
+      const res = await apiFetch('/api/websites', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

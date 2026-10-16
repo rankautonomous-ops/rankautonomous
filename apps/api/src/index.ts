@@ -21,22 +21,88 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL,
-  process.env.CORS_ORIGIN,
-  process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : null
-].filter(Boolean) as string[];
+/**
+ * Comprehensive origin validator supporting apex domain, www subdomain,
+ * preview deployments, local development, and explicit env overrides.
+ */
+export function isAllowedOrigin(origin: string): boolean {
+  if (process.env.NODE_ENV === 'test') return true;
+  if (!origin) return true;
 
-app.use(cors({
+  const normalized = origin.trim().replace(/\/+$/, '');
+
+  // Exact static allowlist
+  const staticOrigins = [
+    'https://rankautonomous.com',
+    'https://www.rankautonomous.com',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:4000',
+    'http://127.0.0.1:4000',
+  ];
+
+  if (staticOrigins.includes(normalized)) {
+    return true;
+  }
+
+  // Dynamic environment origins (handles comma-separated lists)
+  const envOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.CORS_ORIGIN,
+    process.env.APP_URL,
+    process.env.STRIPE_APP_URL,
+  ].filter(Boolean) as string[];
+
+  for (const envVal of envOrigins) {
+    const list = envVal.split(',').map((s) => s.trim().replace(/\/+$/, ''));
+    if (list.includes(normalized)) {
+      return true;
+    }
+  }
+
+  // Domain pattern validation (wildcards/subdomains/previews)
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.toLowerCase();
+
+    // Any rankautonomous.com subdomain (*.rankautonomous.com)
+    if (host === 'rankautonomous.com' || host.endsWith('.rankautonomous.com')) {
+      return true;
+    }
+
+    // Any Vercel deployment preview (*.vercel.app)
+    if (host.endsWith('.vercel.app')) {
+      return true;
+    }
+
+    // Any Netlify deployment preview (*.netlify.app)
+    if (host.endsWith('.netlify.app')) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+export const corsOptions: cors.CorsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'test') {
+    if (!origin || isAllowedOrigin(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+    // Return false without throwing an unhandled Error to prevent HTML 500 responses on preflight
+    return callback(null, false);
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // CRITICAL: Stripe Webhook must receive raw body buffer for signature verification
 // This middleware MUST be registered BEFORE express.json()
@@ -86,6 +152,19 @@ app.get('/health', async (req, res) => {
   } catch (error) {
     res.status(503).json({ status: 'error', service: 'api', database: 'disconnected' });
   }
+});
+
+// Global JSON error handler guaranteeing API never responds with HTML error pages
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[API Unhandled Error]:', err?.message || err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : (err?.status || 500);
+  res.status(statusCode).json({
+    error: err?.name || 'Internal Server Error',
+    message: err?.message || 'An unexpected error occurred.',
+  });
 });
 
 let server: any = null;

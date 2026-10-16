@@ -36,8 +36,7 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
       }
 
       // User is authenticated, initiate Stripe Checkout Session
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await apiFetch(`${apiUrl}/api/billing/create-checkout-session`, {
+      const response = await apiFetch('/api/billing/create-checkout-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

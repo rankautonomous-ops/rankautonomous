@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, ArrowRight, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 import styles from './FreeAnalysisInput.module.css';
 
 interface AnalysisResult {
@@ -33,7 +34,7 @@ export default function FreeAnalysisInput() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const apiUrl = getApiUrl();
       const res = await fetch(`${apiUrl}/api/public/free-analysis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

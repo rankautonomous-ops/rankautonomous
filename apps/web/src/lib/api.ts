@@ -7,7 +7,7 @@
 export function getApiUrl(): string {
   if (typeof window !== 'undefined') {
     if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL;
+      return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
     }
     const isLocal =
       window.location.hostname === 'localhost' ||
@@ -23,7 +23,7 @@ export function getApiUrl(): string {
     (process.env.NODE_ENV === 'production'
       ? 'https://rankautonomous-api.onrender.com'
       : 'http://localhost:4000')
-  );
+  ).replace(/\/+$/, '');
 }
 
 import { createClient } from './supabase/client';
@@ -41,7 +41,17 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
   const { data } = await supabase.auth.getSession();
   
   const apiUrl = getApiUrl();
-  const url = endpoint.startsWith('http') ? endpoint : `${apiUrl}${endpoint}`;
+  let url = endpoint;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = url.startsWith('/') ? `${apiUrl}${url}` : `${apiUrl}/${url}`;
+  } else if (typeof window !== 'undefined') {
+    const isLocal =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+    if (!isLocal && /^https?:\/\/(localhost|127\.0\.0\.1):4000/i.test(url)) {
+      url = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1):4000/i, apiUrl);
+    }
+  }
   
   const makeRequest = async (token: string | null) => {
     const headers = new Headers(options.headers || {});

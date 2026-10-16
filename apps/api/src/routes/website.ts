@@ -967,7 +967,7 @@ router.post(
       }
       res.status(500).json({
         error: 'Internal Server Error',
-        message: 'Failed to generate keyword suggestions.',
+        message: error?.message || 'Failed to generate keyword suggestions.',
       });
     }
   }
@@ -1046,7 +1046,7 @@ router.post(
       }
       res.status(500).json({
         error: 'Internal Server Error',
-        message: 'Failed to generate keyword suggestions.',
+        message: error?.message || 'Failed to generate keyword suggestions.',
       });
     }
   }
