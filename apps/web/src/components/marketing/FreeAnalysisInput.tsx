@@ -146,7 +146,7 @@ export default function FreeAnalysisInput() {
 
       {!error && (
         <p className={styles.helper}>
-          We'll scan your homepage for critical SEO blockers and AI search readiness.
+          We&apos;ll scan your homepage for critical SEO blockers and AI search readiness.
         </p>
       )}
     </div>

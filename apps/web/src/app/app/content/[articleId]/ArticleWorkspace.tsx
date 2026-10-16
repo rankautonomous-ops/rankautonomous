@@ -578,7 +578,52 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                 </div>
               )}
 
-              {article.cmsPublicationInfo?.provider === 'WORDPRESS' ? (
+              {article.publications && article.publications.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                  {article.publications.map((pub: any) => (
+                    <div key={pub.id} style={{ padding: '14px', background: '#edf7ee', border: '1px solid #b6e2be', borderRadius: 'var(--radius-md)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e6b3b', fontWeight: 600, fontSize: '13px', marginBottom: '6px' }}>
+                        <CheckCircle size={16} /> Live on {pub.cmsConnection?.name || 'CMS'} ({pub.cmsConnection?.provider || 'Connected'})
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#1b4d26', lineHeight: 1.5, marginBottom: '8px' }}>
+                        {pub.remoteId && <div>Remote ID: <strong>#{pub.remoteId}</strong></div>}
+                        <div>Status: <strong>{pub.status}</strong></div>
+                        {pub.publishedAt && <div>Published: <strong>{new Date(pub.publishedAt).toLocaleDateString()}</strong></div>}
+                      </div>
+                      {pub.remoteUrl && (
+                        <a
+                          href={pub.remoteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.primaryButton}
+                          style={{ width: '100%', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', textDecoration: 'none', fontSize: '13px', padding: '6px 12px', marginBottom: '6px' }}
+                        >
+                          View Live Post <ExternalLink size={14} />
+                        </a>
+                      )}
+                      <button
+                        className={styles.secondaryButton}
+                        disabled={isPublishing}
+                        onClick={() => handlePublishArticle('publish', pub.cmsConnectionId)}
+                        style={{ width: '100%', fontSize: '12px' }}
+                      >
+                        {isPublishing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                        Sync Edits to {pub.cmsConnection?.name || 'CMS'}
+                      </button>
+                    </div>
+                  ))}
+                  {cmsConnections.length > article.publications.length && (
+                    <button
+                      className={styles.primaryButton}
+                      disabled={isPublishing}
+                      onClick={() => setShowCmsModal(true)}
+                      style={{ width: '100%', marginTop: '4px' }}
+                    >
+                      <Globe size={16} /> Publish to Another CMS
+                    </button>
+                  )}
+                </div>
+              ) : article.cmsPublicationInfo?.provider === 'WORDPRESS' ? (
                 <div style={{ padding: '14px', background: '#edf7ee', border: '1px solid #b6e2be', borderRadius: 'var(--radius-md)', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e6b3b', fontWeight: 600, fontSize: '13px', marginBottom: '8px' }}>
                     <CheckCircle size={16} /> Live on WordPress
@@ -614,14 +659,14 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                 </div>
               )}
 
-              {(!article.publications || article.publications.length === 0) && cmsConnections.length > 0 && (
+              {(!article.publications || article.publications.length === 0) && !article.cmsPublicationInfo?.postId && cmsConnections.length > 0 && (
                 <button
                   className={styles.primaryButton}
                   disabled={isPublishing}
-                  onClick={() => handlePublishArticle('publish')}
+                  onClick={() => setShowCmsModal(true)}
                   style={{ width: '100%', marginTop: '8px' }}
                 >
-                  <Globe size={16} /> Publish to WordPress Now
+                  <Globe size={16} /> Publish to Connected CMS
                 </button>
               )}
             </>

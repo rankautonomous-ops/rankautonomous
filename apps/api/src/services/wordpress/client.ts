@@ -136,15 +136,23 @@ export class WordPressClient {
       const wpCode = data?.code || '';
 
       if (status === 401) {
+        const isWpCom = this.siteUrl.toLowerCase().includes('wordpress.com');
+        const planNote = isWpCom
+          ? ' Note: Hosted WordPress.com requires a Creator or Business plan (or higher) to support REST API Application Passwords.'
+          : '';
         throw new WordPressApiError(
-          `WordPress Authentication Failed: Invalid username or application password. ${wpMsg}`.trim(),
+          `WordPress Authentication Failed: Invalid username or application password.${planNote} ${wpMsg}`.trim(),
           401,
           wpCode
         );
       }
       if (status === 403) {
+        const isWpCom = this.siteUrl.toLowerCase().includes('wordpress.com');
+        const planNote = isWpCom
+          ? ' Note: Hosted WordPress.com requires a Creator or Business plan with plugin support enabled.'
+          : '';
         throw new WordPressApiError(
-          `WordPress Permission Denied: User "${this.username}" does not have sufficient permissions to perform this action. ${wpMsg}`.trim(),
+          `WordPress Permission Denied: User "${this.username}" does not have sufficient permissions to perform this action.${planNote} ${wpMsg}`.trim(),
           403,
           wpCode
         );

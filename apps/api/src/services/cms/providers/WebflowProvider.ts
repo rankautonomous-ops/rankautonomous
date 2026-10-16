@@ -1,4 +1,5 @@
 import { CmsProvider, CmsPublishPayload, CmsPublishResult, CmsProviderError } from '../types';
+import { ssrfSafeFetch } from '../../../lib/urlSafety';
 
 export class WebflowCmsProvider implements CmsProvider {
   private accessToken: string;
@@ -21,14 +22,20 @@ export class WebflowCmsProvider implements CmsProvider {
     };
   }
 
+  private getHeaders(): Record<string, string> {
+    return {
+      'Authorization': `Bearer ${this.accessToken}`,
+      'Accept-Version': '2.0.0',
+      'Content-Type': 'application/json',
+      'User-Agent': 'RankAutonomous-Cms-Connector/1.0',
+    };
+  }
+
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch('https://api.webflow.com/v2/sites', {
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Accept-Version': '2.0.0',
-          'Content-Type': 'application/json'
-        }
+      const res = await ssrfSafeFetch('https://api.webflow.com/v2/sites', {
+        headers: this.getHeaders(),
+        timeoutMs: 10000,
       });
       if (!res.ok) {
         throw new Error(`Webflow API error: ${res.statusText}`);
@@ -46,10 +53,6 @@ export class WebflowCmsProvider implements CmsProvider {
     if (this.fieldMapping.content) fields[this.fieldMapping.content] = payload.content;
     if (this.fieldMapping.excerpt && payload.excerpt) fields[this.fieldMapping.excerpt] = payload.excerpt;
     
-    // Webflow requires isArchived and isDraft for v2 items
-    fields._archived = false;
-    fields._draft = payload.status !== 'publish';
-    
     return fields;
   }
 
@@ -59,27 +62,85 @@ export class WebflowCmsProvider implements CmsProvider {
     }
 
     try {
+      const isPublish = payload.status === 'publish';
       const fields = this.mapFields(payload);
+      const slugKey = this.fieldMapping.slug || 'slug';
 
-      const res = await fetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items`, {
+      // Duplicate prevention: check if an item with this slug already exists in the collection
+      if (payload.slug) {
+        try {
+          const listRes = await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items`, {
+            method: 'GET',
+            headers: this.getHeaders(),
+            timeoutMs: 10000,
+          });
+          if (listRes.ok) {
+            const listData = await listRes.json().catch(() => ({}));
+            const items = Array.isArray(listData.items) ? listData.items : [];
+            const existing = items.find((item: any) =>
+              item?.fieldData?.[slugKey] === payload.slug || item?.fieldData?.slug === payload.slug
+            );
+            if (existing && existing.id) {
+              return await this.updateArticle(existing.id, payload);
+            }
+          }
+        } catch {
+          // If pre-check fails (e.g. timeout), proceed to creation
+        }
+      }
+
+      const res = await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fieldData: fields, isArchived: false, isDraft: payload.status !== 'publish' })
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          fieldData: fields,
+          isArchived: false,
+          isDraft: !isPublish,
+        }),
+        timeoutMs: 15000,
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
+        const errorText = await res.text().catch(() => '');
+        // Fallback: If Webflow rejected due to duplicate slug, find the item and update it
+        if (payload.slug && (res.status === 400 || res.status === 409) && /already taken|duplicate|unique|conflict/i.test(errorText)) {
+          try {
+            const listRes = await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items`, {
+              method: 'GET',
+              headers: this.getHeaders(),
+              timeoutMs: 10000,
+            });
+            if (listRes.ok) {
+              const listData = await listRes.json().catch(() => ({}));
+              const items = Array.isArray(listData.items) ? listData.items : [];
+              const existing = items.find((item: any) =>
+                item?.fieldData?.[slugKey] === payload.slug || item?.fieldData?.slug === payload.slug
+              );
+              if (existing && existing.id) {
+                return await this.updateArticle(existing.id, payload);
+              }
+            }
+          } catch {}
+        }
         return { status: 'FAILED', error: `Webflow publish failed: ${errorText.substring(0, 200)}` };
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      const remoteId = data.id;
+
+      // In Webflow v2, if publishing live, trigger item publish endpoint
+      if (isPublish && remoteId) {
+        await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items/publish`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ itemIds: [remoteId] }),
+          timeoutMs: 10000,
+        }).catch(() => null);
+      }
+
       return {
-        remoteId: data.id,
-        // Webflow API v2 doesn't return the live URL directly in the item response typically, we just omit or derive if domain is known
-        remoteUrl: '', 
+        remoteId,
+        remoteUrl: payload.slug ? `https://webflow.io/${payload.slug}` : undefined, 
         status: 'PUBLISHED',
       };
     } catch (err: any) {
@@ -93,30 +154,57 @@ export class WebflowCmsProvider implements CmsProvider {
     }
 
     try {
+      const isPublish = payload.status === 'publish';
       const fields = this.mapFields(payload);
 
-      const res = await fetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items/${remoteId}`, {
+      const res = await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items/${remoteId}`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fieldData: fields, isArchived: false, isDraft: payload.status !== 'publish' })
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          fieldData: fields,
+          isArchived: false,
+          isDraft: !isPublish,
+        }),
+        timeoutMs: 15000,
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
+        const errorText = await res.text().catch(() => '');
         return { status: 'FAILED', error: `Webflow update failed: ${errorText.substring(0, 200)}` };
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      if (isPublish && remoteId) {
+        await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items/publish`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ itemIds: [remoteId] }),
+          timeoutMs: 10000,
+        }).catch(() => null);
+      }
+
       return {
-        remoteId: data.id,
-        remoteUrl: '',
+        remoteId: data.id || remoteId,
+        remoteUrl: payload.slug ? `https://webflow.io/${payload.slug}` : undefined,
         status: 'PUBLISHED',
       };
     } catch (err: any) {
       return { status: 'FAILED', error: err.message || 'Webflow update failed' };
+    }
+  }
+
+  async deleteArticle(remoteId: string): Promise<boolean> {
+    try {
+      const res = await ssrfSafeFetch(`https://api.webflow.com/v2/collections/${this.collectionId}/items/${remoteId}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+        timeoutMs: 10000,
+      });
+
+      return res.ok;
+    } catch (err: any) {
+      throw new CmsProviderError(err.message || 'Failed to delete Webflow item');
     }
   }
 }

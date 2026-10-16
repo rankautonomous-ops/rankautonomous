@@ -5,10 +5,17 @@ import { WordPressCmsProvider } from './providers/WordPressProvider';
 import { ShopifyCmsProvider } from './providers/ShopifyProvider';
 import { WebflowCmsProvider } from './providers/WebflowProvider';
 import { CustomCmsProvider } from './providers/CustomProvider';
-import { ComingSoonProvider } from './providers/ComingSoonProvider';
 import { GhostProvider } from './providers/GhostProvider';
 import { NotionProvider } from './providers/NotionProvider';
 import { RssProvider } from './providers/RssProvider';
+import { WixProvider } from './providers/WixProvider';
+import { SquarespaceProvider } from './providers/SquarespaceProvider';
+import { BigCommerceProvider } from './providers/BigCommerceProvider';
+import { DudaProvider } from './providers/DudaProvider';
+import { HubSpotProvider } from './providers/HubSpotProvider';
+import { HighLevelProvider } from './providers/HighLevelProvider';
+import { FramerProvider } from './providers/FramerProvider';
+import { LovableProvider } from './providers/LovableProvider';
 
 export function createCmsProvider(connection: CmsConnection): CmsProvider {
   let credentials: any = {};
@@ -41,14 +48,21 @@ export function createCmsProvider(connection: CmsConnection): CmsProvider {
     case 'RSS':
       return new RssProvider(config);
     case 'WIX':
+      return new WixProvider(connection.baseUrl || '', credentials, config);
     case 'SQUARESPACE':
+      return new SquarespaceProvider(connection.baseUrl || '', credentials, config);
     case 'BIGCOMMERCE':
+      return new BigCommerceProvider(connection.baseUrl || '', credentials, config);
     case 'DUDA':
+      return new DudaProvider(connection.baseUrl || '', credentials, config);
     case 'HUBSPOT':
+      return new HubSpotProvider(connection.baseUrl || '', credentials, config);
     case 'HIGHLEVEL':
+      return new HighLevelProvider(connection.baseUrl || '', credentials, config);
     case 'FRAMER':
+      return new FramerProvider(connection.baseUrl || '', credentials, config);
     case 'LOVABLE':
-      return new ComingSoonProvider(connection.provider);
+      return new LovableProvider(connection.baseUrl || '', credentials, config);
     default:
       throw new CmsProviderError(`Provider ${connection.provider} is not supported.`);
   }

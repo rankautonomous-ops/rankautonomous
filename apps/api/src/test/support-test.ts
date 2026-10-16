@@ -1,5 +1,6 @@
 import request from 'supertest';
 import express from 'express';
+import { setAiProvider } from '../services/aiProvider';
 // Using require since esModuleInterop is causing issues
 // Or just require it if TS complains
 const supportRoute = require('../routes/support').default || require('../routes/support');
@@ -12,6 +13,10 @@ app.use('/api/support', supportRoute);
 async function main() {
   console.log('--- Running Support API Tests ---');
   let exitCode = 0;
+
+  setAiProvider({
+    generateCompletion: async () => 'RankAutonomous is an autonomous SEO visibility platform.'
+  });
 
   try {
     // 1. Test Empty Message Validation
@@ -80,6 +85,8 @@ async function main() {
   } catch (err: any) {
     console.error('❌ Test failed:', err);
     exitCode = 1;
+  } finally {
+    setAiProvider(null);
   }
 
   process.exit(exitCode);

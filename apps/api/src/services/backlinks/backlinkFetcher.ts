@@ -115,14 +115,15 @@ export function validateUrlPreflight(urlString: string): { valid: true; parsedUr
     return { valid: false, errorCode: 'UNSUPPORTED_PROTOCOL', errorMessage: 'Only HTTP and HTTPS protocols are allowed' };
   }
   
-  // Early check for obvious dangerous hostnames
+  // Early check for obvious dangerous hostnames or literal private IPs
   const hostname = parsedUrl.hostname.toLowerCase();
   if (
     hostname === 'localhost' ||
     hostname.endsWith('.localhost') ||
-    hostname.endsWith('.local')
+    hostname.endsWith('.local') ||
+    isPrivateIP(hostname)
   ) {
-    return { valid: false, errorCode: 'SSRF_BLOCKED', errorMessage: 'Localhost and local network targets are blocked' };
+    return { valid: false, errorCode: 'SSRF_BLOCKED', errorMessage: 'Localhost and private/internal IP targets are blocked' };
   }
 
   return { valid: true, parsedUrl };

@@ -25,6 +25,7 @@ import {
   trashWordPressPost,
   WordPressApiError,
 } from '../services/wordpress';
+import { publishArticle as publishArticleToCms } from '../services/cms/publishingService';
 
 const router = Router();
 
@@ -1909,7 +1910,16 @@ router.get('/:id/articles/:articleId', requireAuth, requireSubscription, async (
     const website = await checkWebsiteOwnershipLocal(req, res);
     if (!website) return;
     const article = await prisma.article.findUnique({
-      where: { id: req.params.articleId }
+      where: { id: req.params.articleId },
+      include: {
+        publications: {
+          include: {
+            cmsConnection: {
+              select: { id: true, name: true, provider: true, status: true }
+            }
+          }
+        }
+      }
     });
     if (!article || article.websiteId !== website.id) {
       res.status(404).json({ error: 'Article not found' });
@@ -2344,7 +2354,18 @@ router.post(
       const website = await checkWebsiteOwnershipLocal(req, res);
       if (!website) return;
 
-      const { postStatus, scheduledAt } = req.body || {};
+      const { postStatus, scheduledAt, cmsConnectionId } = req.body || {};
+
+      if (cmsConnectionId) {
+        const result = await publishArticleToCms(
+          website.id,
+          req.params.articleId,
+          cmsConnectionId,
+          { postStatus, scheduledAt }
+        );
+        res.status(200).json(result);
+        return;
+      }
 
       const result = await publishArticleToWordPress(
         website.id,
@@ -2362,10 +2383,10 @@ router.post(
         });
         return;
       }
-      console.error('[WordPress Publish Error]:', err);
+      console.error('[Publish Error]:', err);
       res.status(500).json({
         error: 'Internal Server Error',
-        message: err?.message || 'Failed to publish article to WordPress.',
+        message: err?.message || 'Failed to publish article.',
       });
     }
   }
@@ -2373,7 +2394,7 @@ router.post(
 
 /**
  * PUT /api/websites/:id/articles/:articleId/publish
- * Updates an already published article on WordPress.
+ * Updates an already published article on WordPress or Connected CMS.
  */
 router.put(
   '/:id/articles/:articleId/publish',
@@ -2384,7 +2405,18 @@ router.put(
       const website = await checkWebsiteOwnershipLocal(req, res);
       if (!website) return;
 
-      const { postStatus, scheduledAt } = req.body || {};
+      const { postStatus, scheduledAt, cmsConnectionId } = req.body || {};
+
+      if (cmsConnectionId) {
+        const result = await publishArticleToCms(
+          website.id,
+          req.params.articleId,
+          cmsConnectionId,
+          { postStatus, scheduledAt }
+        );
+        res.status(200).json(result);
+        return;
+      }
 
       const result = await publishArticleToWordPress(
         website.id,
@@ -2402,10 +2434,10 @@ router.put(
         });
         return;
       }
-      console.error('[WordPress Update Publish Error]:', err);
+      console.error('[Update Publish Error]:', err);
       res.status(500).json({
         error: 'Internal Server Error',
-        message: err?.message || 'Failed to update published WordPress post.',
+        message: err?.message || 'Failed to update published post.',
       });
     }
   }

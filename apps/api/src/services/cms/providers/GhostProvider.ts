@@ -65,14 +65,20 @@ export class GhostProvider implements CmsProvider {
       }
 
       // Convert Markdown to Mobiledoc or HTML
-      // Ghost accepts HTML source to convert to its internal mobiledoc format natively
+      let ghostStatus: 'published' | 'draft' | 'scheduled' = 'draft';
+      if (payload.status === 'publish') {
+        ghostStatus = 'published';
+      } else if (payload.status === 'future' && payload.scheduledAt) {
+        ghostStatus = 'scheduled';
+      }
+
       const ghostPayload = {
         posts: [{
           title: payload.title,
           slug: payload.slug,
           html: payload.content,
           custom_excerpt: payload.excerpt,
-          status: payload.status === 'publish' ? 'published' : 'draft',
+          status: ghostStatus,
           published_at: payload.scheduledAt ? new Date(payload.scheduledAt).toISOString() : undefined
         }]
       };
@@ -122,13 +128,20 @@ export class GhostProvider implements CmsProvider {
          return { status: 'FAILED', error: `Ghost API Error: Failed to fetch post to update` };
       }
 
+      let ghostStatus: 'published' | 'draft' | 'scheduled' = 'draft';
+      if (payload.status === 'publish') {
+        ghostStatus = 'published';
+      } else if (payload.status === 'future' && payload.scheduledAt) {
+        ghostStatus = 'scheduled';
+      }
+
       const ghostPayload = {
         posts: [{
           title: payload.title,
           slug: payload.slug,
           html: payload.content,
           custom_excerpt: payload.excerpt,
-          status: payload.status === 'publish' ? 'published' : 'draft',
+          status: ghostStatus,
           published_at: payload.scheduledAt ? new Date(payload.scheduledAt).toISOString() : undefined,
           updated_at: updatedAt
         }]

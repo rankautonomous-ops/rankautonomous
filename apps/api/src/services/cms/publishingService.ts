@@ -1,8 +1,7 @@
-import { PrismaClient, CmsConnection, Article, ArticlePublication } from '@prisma/client';
+import prisma from '../../lib/database';
+import { CmsConnection, Article, ArticlePublication } from '@prisma/client';
 import { createCmsProvider } from './factory';
 import { CmsPublishPayload, CmsProviderError } from './types';
-
-const prisma = new PrismaClient();
 
 export async function publishArticle(
   websiteId: string,

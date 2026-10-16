@@ -54,7 +54,7 @@ export default function AiSupportWidget() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const token = typeof window !== 'undefined' ? localStorage.getItem('supabase.auth.token') : null;
-      let headers: HeadersInit = {
+      const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
 

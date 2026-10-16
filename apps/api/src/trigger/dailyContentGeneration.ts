@@ -2,15 +2,8 @@ import { task, logger } from '@trigger.dev/sdk/v3';
 import prisma from '../lib/database';
 import { generateArticle } from '../services/aiContent/index';
 
-export const dailyContentGeneration = task({
-  id: 'daily-content-generation',
-  maxDuration: 600, // 10 minutes
-  retry: {
-    maxAttempts: 2,
-    minTimeoutInMs: 60000,
-  },
-  run: async (payload: { websiteId: string }) => {
-    logger.info(`Starting daily content generation for website: ${payload.websiteId}`);
+export async function executeDailyContentGeneration(payload: { websiteId: string }) {
+  logger.info(`Starting daily content generation for website: ${payload.websiteId}`);
 
     const website = await prisma.website.findUnique({
       where: { id: payload.websiteId }
@@ -88,6 +81,12 @@ export const dailyContentGeneration = task({
 
       await generateArticle(job.id);
 
+      const generatedCheck = await prisma.article.findUnique({ where: { id: articleToGenerate.id } });
+      if (generatedCheck?.status === 'FAILED') {
+        const jobRecord = await prisma.aiJob.findUnique({ where: { id: job.id } });
+        throw new Error(jobRecord?.error || 'AI generation failed');
+      }
+
       logger.info(`Successfully generated article: ${articleToGenerate.id}`);
       return { success: true, articleId: articleToGenerate.id };
 
@@ -100,6 +99,17 @@ export const dailyContentGeneration = task({
       });
 
       throw err;
-    }
   }
+}
+
+export const dailyContentGeneration = task({
+  id: 'daily-content-generation',
+  maxDuration: 600, // 10 minutes
+  retry: {
+    maxAttempts: 2,
+    minTimeoutInMs: 60000,
+  },
+  run: async (payload: { websiteId: string }) => {
+    return executeDailyContentGeneration(payload);
+  },
 });

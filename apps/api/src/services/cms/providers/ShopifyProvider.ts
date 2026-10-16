@@ -1,4 +1,5 @@
 import { CmsProvider, CmsPublishPayload, CmsPublishResult, CmsProviderError } from '../types';
+import { ssrfSafeFetch } from '../../../lib/urlSafety';
 
 export class ShopifyCmsProvider implements CmsProvider {
   private apiVersion: string;
@@ -23,11 +24,13 @@ export class ShopifyCmsProvider implements CmsProvider {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.apiUrl}/shop.json`, {
+      const res = await ssrfSafeFetch(`${this.apiUrl}/shop.json`, {
+        method: 'GET',
         headers: {
           'X-Shopify-Access-Token': this.accessToken,
           'Content-Type': 'application/json',
-        }
+        },
+        timeoutMs: 10000,
       });
       if (!res.ok) {
         throw new Error(`Shopify API error: ${res.statusText}`);
@@ -44,39 +47,48 @@ export class ShopifyCmsProvider implements CmsProvider {
     }
     
     try {
-      const shopifyPayload = {
+      const isFuture = payload.status === 'future' && !!payload.scheduledAt;
+      const shopifyPayload: any = {
         article: {
           title: payload.title,
           body_html: payload.content,
           handle: payload.slug,
           summary_html: payload.excerpt,
-          published: payload.status === 'publish',
+          published: payload.status === 'publish' || isFuture,
           tags: payload.tags ? payload.tags.join(', ') : undefined,
         }
       };
 
+      if (isFuture) {
+        shopifyPayload.article.published_at = new Date(payload.scheduledAt!).toISOString();
+      }
+
       // Duplicate protection
       if (payload.slug) {
-        const searchRes = await fetch(`${this.apiUrl}/blogs/${this.blogId}/articles.json?handle=${payload.slug}`, {
+        const searchRes = await ssrfSafeFetch(`${this.apiUrl}/blogs/${this.blogId}/articles.json?handle=${payload.slug}`, {
+          method: 'GET',
           headers: {
             'X-Shopify-Access-Token': this.accessToken,
-          }
-        });
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
+          },
+          timeoutMs: 10000,
+        }).catch(() => null);
+
+        if (searchRes && searchRes.ok) {
+          const searchData = await searchRes.json().catch(() => ({}));
           if (searchData.articles && searchData.articles.length > 0) {
             return await this.updateArticle(searchData.articles[0].id.toString(), payload);
           }
         }
       }
 
-      const res = await fetch(`${this.apiUrl}/blogs/${this.blogId}/articles.json`, {
+      const res = await ssrfSafeFetch(`${this.apiUrl}/blogs/${this.blogId}/articles.json`, {
         method: 'POST',
         headers: {
           'X-Shopify-Access-Token': this.accessToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(shopifyPayload)
+        body: JSON.stringify(shopifyPayload),
+        timeoutMs: 15000,
       });
 
       if (!res.ok) {
@@ -101,25 +113,31 @@ export class ShopifyCmsProvider implements CmsProvider {
     }
 
     try {
-      const shopifyPayload = {
+      const isFuture = payload.status === 'future' && !!payload.scheduledAt;
+      const shopifyPayload: any = {
         article: {
           id: parseInt(remoteId, 10),
           title: payload.title,
           body_html: payload.content,
           handle: payload.slug,
           summary_html: payload.excerpt,
-          published: payload.status === 'publish',
+          published: payload.status === 'publish' || isFuture,
           tags: payload.tags ? payload.tags.join(', ') : undefined,
         }
       };
 
-      const res = await fetch(`${this.apiUrl}/blogs/${this.blogId}/articles/${remoteId}.json`, {
+      if (isFuture) {
+        shopifyPayload.article.published_at = new Date(payload.scheduledAt!).toISOString();
+      }
+
+      const res = await ssrfSafeFetch(`${this.apiUrl}/blogs/${this.blogId}/articles/${remoteId}.json`, {
         method: 'PUT',
         headers: {
           'X-Shopify-Access-Token': this.accessToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(shopifyPayload)
+        body: JSON.stringify(shopifyPayload),
+        timeoutMs: 15000,
       });
 
       if (!res.ok) {
