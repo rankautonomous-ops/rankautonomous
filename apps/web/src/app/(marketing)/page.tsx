@@ -300,7 +300,7 @@ export default async function Home() {
           
           <div className={styles.trialPlaceholder}>
             <Sparkles size={16} />
-            <span>New: 3-Day Trial for $1 (Coming Soon)</span>
+            <span>New: 3-Day Full-Access Trial for $1</span>
           </div>
         </div>
 

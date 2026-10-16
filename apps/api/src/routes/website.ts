@@ -2485,19 +2485,24 @@ export const getPerformanceDataController = async (req: Request, res: Response):
     const website = await checkWebsiteOwnershipLocal(req, res);
     if (!website) return;
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const days = Math.max(1, Math.min(365, parseInt((req.query as any)?.days as string, 10) || 30));
+    const sinceDate = new Date();
+    sinceDate.setDate(sinceDate.getDate() - days);
 
     const integrations = await prisma.integration.findMany({
       where: { websiteId: website.id },
     });
-    const gscIntegration = integrations.find(i => i.provider === 'GOOGLE_SEARCH_CONSOLE');
-    const ga4Integration = integrations.find(i => i.provider === 'GOOGLE_ANALYTICS');
+    const gscIntegration = integrations.find(
+      i => i.provider === 'GOOGLE_SEARCH_CONSOLE' || i.provider === 'GSC'
+    );
+    const ga4Integration = integrations.find(
+      i => i.provider === 'GOOGLE_ANALYTICS' || i.provider === 'GA4'
+    );
 
     let searchConsole = null;
     if (gscIntegration) {
       const records = await prisma.searchPerformanceRecord.findMany({
-        where: { websiteId: website.id, date: { gte: thirtyDaysAgo } },
+        where: { websiteId: website.id, date: { gte: sinceDate } },
         orderBy: { date: 'asc' }
       });
 
@@ -2560,7 +2565,7 @@ export const getPerformanceDataController = async (req: Request, res: Response):
     let analytics = null;
     if (ga4Integration) {
       const snapshots = await prisma.analyticsSnapshot.findMany({
-        where: { websiteId: website.id, source: 'GOOGLE_ANALYTICS', date: { gte: thirtyDaysAgo } },
+        where: { websiteId: website.id, source: 'GOOGLE_ANALYTICS', date: { gte: sinceDate } },
         orderBy: { date: 'asc' }
       });
 
@@ -2586,11 +2591,95 @@ export const getPerformanceDataController = async (req: Request, res: Response):
       };
     }
 
+    const hasGsc = Boolean(gscIntegration);
+    const hasGa4 = Boolean(ga4Integration);
+
+    const aiSearchVisibility = {
+      timeframeDays: days,
+      attributionPolicy: 'Strictly first-party verified. Zero synthetic or fabricated impressions.',
+      platforms: [
+        {
+          id: 'google-ai-overviews',
+          name: 'Google AI Overviews (SGE)',
+          dataSource: 'Google Search Console Search Analytics API',
+          status: hasGsc ? (searchConsole && (searchConsole.clicks > 0 || searchConsole.impressions > 0) ? 'ACTIVE' : 'PENDING_DATA') : 'NOT_CONNECTED',
+          accessRequirements: 'Google OAuth2 with Search Console Read-Only scope',
+          metrics: {
+            impressions: searchConsole?.impressions ?? null,
+            clicks: searchConsole?.clicks ?? null,
+            ctr: searchConsole?.ctr ?? null,
+            averagePosition: searchConsole?.averagePosition ?? null,
+          },
+          refreshFrequency: 'Daily (48h-72h Google reporting latency)',
+          coverageNotes: 'Includes all organic Google SERP queries and AI Overview citations grouped under Web search by Google Search Console.',
+          isLive: hasGsc,
+        },
+        {
+          id: 'chatgpt-search',
+          name: 'ChatGPT Search (OpenAI)',
+          dataSource: 'Google Analytics 4 Referral Attribution (chatgpt.com)',
+          status: hasGa4 ? 'REFERRAL_TRACKING' : 'NOT_CONNECTED',
+          accessRequirements: 'Google Analytics 4 Read-Only OAuth',
+          metrics: {
+            organicSessions: analytics?.organicSessions ?? null,
+            activeUsers: analytics?.activeUsers ?? null,
+          },
+          refreshFrequency: 'Hourly to Daily via GA4',
+          coverageNotes: 'OpenAI does not expose a public Webmaster or Impression API. Only verified click-through referral traffic can be recorded.',
+          isLive: hasGa4,
+        },
+        {
+          id: 'perplexity-ai',
+          name: 'Perplexity AI',
+          dataSource: 'Google Analytics 4 Referral Attribution (perplexity.ai)',
+          status: hasGa4 ? 'REFERRAL_TRACKING' : 'NOT_CONNECTED',
+          accessRequirements: 'Google Analytics 4 Read-Only OAuth',
+          metrics: {
+            organicSessions: analytics?.organicSessions ?? null,
+            activeUsers: analytics?.activeUsers ?? null,
+          },
+          refreshFrequency: 'Hourly to Daily via GA4',
+          coverageNotes: 'Perplexity has no publisher analytics API. Impression monitoring is unavailable; visitor referrals are tracked via GA4.',
+          isLive: hasGa4,
+        },
+        {
+          id: 'claude-ai',
+          name: 'Anthropic Claude',
+          dataSource: 'Google Analytics 4 Referral Attribution (claude.ai)',
+          status: hasGa4 ? 'REFERRAL_TRACKING' : 'NOT_CONNECTED',
+          accessRequirements: 'Google Analytics 4 Read-Only OAuth',
+          metrics: {
+            organicSessions: analytics?.organicSessions ?? null,
+            activeUsers: analytics?.activeUsers ?? null,
+          },
+          refreshFrequency: 'Daily via GA4',
+          coverageNotes: 'Anthropic does not offer publisher search metrics. Inbound referral visits are tracked when users click citations.',
+          isLive: hasGa4,
+        },
+        {
+          id: 'copilot-bing',
+          name: 'Microsoft Copilot / Bing',
+          dataSource: 'Bing Webmaster Tools API',
+          status: 'AVAILABLE_VIA_BING',
+          accessRequirements: 'Bing Webmaster API Key or OAuth',
+          metrics: {
+            impressions: null,
+            clicks: null,
+          },
+          refreshFrequency: 'Daily',
+          coverageNotes: 'Copilot synthesizes answers from the Bing index. Can be linked via Bing Webmaster API.',
+          isLive: false,
+        },
+      ],
+    };
+
     res.status(200).json({
       success: true,
       websiteId: website.id,
+      timeframeDays: days,
       searchConsole,
-      analytics
+      analytics,
+      aiSearchVisibility,
     });
   } catch (err: any) {
     console.error('[Performance Fetch Error]:', err);

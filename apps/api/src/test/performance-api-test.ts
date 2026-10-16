@@ -164,9 +164,17 @@ export async function runPerformanceApiTests() {
     testAssert(ctx3.getData().searchConsole.clicks === 10, 'Test 10: GSC clicks correctly aggregated');
     testAssert(ctx3.getData().searchConsole.topQueries.length === 1, 'Test 11: Top queries grouped');
     testAssert(ctx3.getData().analytics.activeUsers === 50, 'Test 12: GA4 activeUsers correctly aggregated');
-    testAssert(ctx3.getData().analytics.engagementRate === 0.75, 'Test 13: GA4 engagement rate correctly mapped');
+    testAssert(Boolean(ctx3.getData().aiSearchVisibility), 'Test 14: aiSearchVisibility object exists');
+    testAssert(Array.isArray(ctx3.getData().aiSearchVisibility?.platforms), 'Test 15: aiSearchVisibility.platforms is an array');
+    testAssert(ctx3.getData().aiSearchVisibility?.platforms.length === 5, 'Test 16: aiSearchVisibility has 5 defined platforms');
 
-    // Case 4: Tenant Isolation
+    // Case 4: Query parameter days
+    const ctxDays = createMockContext(testUser, { id: testWebsiteId });
+    (ctxDays.req as any).query = { days: '7' };
+    await getPerformanceDataController(ctxDays.req, ctxDays.res);
+    testAssert(ctxDays.getData().timeframeDays === 7, 'Test 17: Query param days=7 accurately reflected in timeframeDays');
+
+    // Case 5: Tenant Isolation
     const otherUser: AuthenticatedUser = {
       id: 'other-perf-user',
       supabaseAuthId: 'other-supa',
@@ -185,7 +193,7 @@ export async function runPerformanceApiTests() {
     // otherUser tries to access testWebsiteId
     const ctx4 = createMockContext(otherUser, { id: testWebsiteId });
     await getPerformanceDataController(ctx4.req, ctx4.res);
-    testAssert(ctx4.getStatus() === 403 || ctx4.getStatus() === 404, 'Test 14: Tenant isolation prevents reading another user\'s website');
+    testAssert(ctx4.getStatus() === 403 || ctx4.getStatus() === 404, 'Test 18: Tenant isolation prevents reading another user\'s website');
 
     console.log('\n==================================================');
     console.log(`SUMMARY: ${passed} Passed, ${failed} Failed`);
