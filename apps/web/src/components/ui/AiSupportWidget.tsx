@@ -102,18 +102,23 @@ export default function AiSupportWidget() {
   return (
     <div className={styles.widgetContainer}>
       {isOpen && (
-        <div className={styles.chatPanel}>
+        <div className={styles.chatPanel} id="ai-support-chat-panel">
           <div className={styles.chatHeader}>
             <div className={styles.headerTitle}>
               <Bot size={18} />
               <span>Ask RankAutonomous</span>
             </div>
-            <button className={styles.closeButton} onClick={() => setIsOpen(false)}>
+            <button
+              id="ai-support-close-btn"
+              className={styles.closeButton}
+              onClick={() => setIsOpen(false)}
+              aria-label="Close Support Chat"
+            >
               <X size={18} />
             </button>
           </div>
           
-          <div className={styles.chatMessages}>
+          <div className={styles.chatMessages} id="ai-support-messages">
             {messages.map(msg => (
               <div key={msg.id} className={`${styles.message} ${styles[msg.role]}`}>
                 {msg.role === 'assistant' ? (
@@ -124,7 +129,7 @@ export default function AiSupportWidget() {
               </div>
             ))}
             {isLoading && (
-              <div className={`${styles.message} ${styles.assistant}`}>
+              <div className={`${styles.message} ${styles.assistant}`} id="ai-support-loading">
                 <div className={styles.loadingIndicator}>
                   <div className={styles.dot}></div>
                   <div className={styles.dot}></div>
@@ -135,10 +140,11 @@ export default function AiSupportWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {error && <div className={styles.errorMessage}>{error}</div>}
+          {error && <div className={styles.errorMessage} id="ai-support-error">{error}</div>}
 
-          <form className={styles.chatInputContainer} onSubmit={handleSend}>
+          <form className={styles.chatInputContainer} onSubmit={handleSend} id="ai-support-form">
             <input 
+              id="ai-support-input"
               type="text" 
               className={styles.chatInput}
               placeholder="Type your message..."
@@ -148,9 +154,11 @@ export default function AiSupportWidget() {
               maxLength={1000}
             />
             <button 
+              id="ai-support-send-btn"
               type="submit" 
               className={styles.sendButton}
               disabled={isLoading || !inputValue.trim()}
+              aria-label="Send Message"
             >
               <Send size={16} />
             </button>
@@ -159,7 +167,12 @@ export default function AiSupportWidget() {
       )}
 
       {!isOpen && (
-        <button className={styles.supportButton} onClick={() => setIsOpen(true)}>
+        <button
+          id="ai-support-widget-btn"
+          className={styles.supportButton}
+          onClick={() => setIsOpen(true)}
+          aria-label="Open AI Support"
+        >
           <MessageSquare size={20} />
           <span>AI Support</span>
         </button>

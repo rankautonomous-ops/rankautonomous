@@ -858,6 +858,7 @@ export default function OnboardingWizardPage() {
                 </div>
                 {!aiGenerated && (
                   <button
+                    id="generate-ai-keywords-btn"
                     type="button"
                     onClick={handleGenerateAiKeywords}
                     disabled={isGeneratingAi}
