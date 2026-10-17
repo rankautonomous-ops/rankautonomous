@@ -87,45 +87,51 @@ export class OpenRouterProvider implements IAiProvider {
     const defaultModel = (
       process.env.OPENROUTER_MODEL_DEFAULT ||
       process.env.AI_MODEL_PREFERENCE ||
-      'openai/gpt-4o-mini'
+      'openrouter/free'
     ).trim();
 
     switch (task) {
       case 'chat': {
-        const primary = (process.env.OPENROUTER_MODEL_CHAT || 'openai/gpt-4o-mini').trim();
+        const primary = (process.env.OPENROUTER_MODEL_CHAT || 'openrouter/free').trim();
         const fallbacks =
           explicitFallbacks ||
-          ['openai/gpt-4o-mini', 'google/gemini-2.5-flash'].filter((m) => m !== primary);
+          ['openrouter/free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'].filter(
+            (m) => m !== primary
+          );
         return { primary, fallbacks };
       }
       case 'keywords': {
-        const primary = (process.env.OPENROUTER_MODEL_KEYWORDS || 'openai/gpt-4o-mini').trim();
+        const primary = (process.env.OPENROUTER_MODEL_KEYWORDS || 'openrouter/free').trim();
         const fallbacks =
           explicitFallbacks ||
-          ['openai/gpt-4o-mini', 'google/gemini-2.5-flash'].filter((m) => m !== primary);
+          ['openrouter/free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'].filter(
+            (m) => m !== primary
+          );
         return { primary, fallbacks };
       }
       case 'seo_analysis': {
-        const primary = (process.env.OPENROUTER_MODEL_SEO || 'google/gemini-2.5-flash').trim();
+        const primary = (process.env.OPENROUTER_MODEL_SEO || 'openrouter/free').trim();
         const fallbacks =
           explicitFallbacks ||
-          ['google/gemini-2.5-flash', 'openai/gpt-4o-mini'].filter((m) => m !== primary);
+          ['openrouter/free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'].filter(
+            (m) => m !== primary
+          );
         return { primary, fallbacks };
       }
       case 'article_generation': {
-        const primary = (process.env.OPENROUTER_MODEL_ARTICLE || 'deepseek/deepseek-chat').trim();
+        const primary = (process.env.OPENROUTER_MODEL_ARTICLE || 'openrouter/free').trim();
         const fallbacks =
           explicitFallbacks ||
-          ['deepseek/deepseek-chat', 'google/gemini-2.5-flash', 'openai/gpt-4o-mini'].filter(
+          ['openrouter/free', 'nvidia/nemotron-3.5-lightning:free'].filter(
             (m) => m !== primary
           );
         return { primary, fallbacks };
       }
       case 'article_review': {
-        const primary = (process.env.OPENROUTER_MODEL_REVIEW || 'deepseek/deepseek-chat').trim();
+        const primary = (process.env.OPENROUTER_MODEL_REVIEW || 'openrouter/free').trim();
         const fallbacks =
           explicitFallbacks ||
-          ['deepseek/deepseek-chat', 'openai/gpt-4o-mini', 'google/gemini-2.5-flash'].filter(
+          ['openrouter/free', 'nvidia/nemotron-3.5-lightning:free'].filter(
             (m) => m !== primary
           );
         return { primary, fallbacks };
@@ -134,7 +140,9 @@ export class OpenRouterProvider implements IAiProvider {
         const primary = defaultModel;
         const fallbacks =
           explicitFallbacks ||
-          ['openai/gpt-4o-mini', 'google/gemini-2.5-flash'].filter((m) => m !== primary);
+          ['openrouter/free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'].filter(
+            (m) => m !== primary
+          );
         return { primary, fallbacks };
       }
     }
@@ -206,32 +214,19 @@ export class OpenRouterProvider implements IAiProvider {
 
         errMessage = sanitizeAiErrorMessage(errMessage);
 
+        // Never silently fall back to paid models
         if (response.status === 402) {
-          if (isGeminiConfigured()) {
-            console.warn(
-              '[OpenRouter] Insufficient credits (402). Gracefully falling back to configured Gemini provider.'
-            );
-            const gemini = new GeminiProvider();
-            return await gemini.generateCompletion(options);
-          }
           throw new AiProviderError(
-            'OpenRouter account has insufficient credits. Please purchase credits at https://openrouter.ai/settings/credits.',
-            402,
-            'AI_INSUFFICIENT_CREDITS',
-            false
+            'Free AI inference quota temporarily exhausted. Please wait a moment and try again.',
+            429,
+            'AI_FREE_QUOTA_EXHAUSTED',
+            true
           );
         }
 
         if (response.status === 429) {
-          if (isGeminiConfigured()) {
-            console.warn(
-              '[OpenRouter] Rate limited (429). Gracefully falling back to configured Gemini provider.'
-            );
-            const gemini = new GeminiProvider();
-            return await gemini.generateCompletion(options);
-          }
           throw new AiProviderError(
-            'The AI service is currently experiencing high demand or rate limits. Please try again later.',
+            'Free AI inference is currently experiencing high demand. Please try again in a moment.',
             429,
             'AI_RATE_LIMITED',
             true
@@ -239,15 +234,8 @@ export class OpenRouterProvider implements IAiProvider {
         }
 
         if (response.status >= 500) {
-          if (isGeminiConfigured()) {
-            console.warn(
-              `[OpenRouter] Service error (${response.status}). Gracefully falling back to configured Gemini provider.`
-            );
-            const gemini = new GeminiProvider();
-            return await gemini.generateCompletion(options);
-          }
           throw new AiProviderError(
-            'The AI service is temporarily unavailable. Please try again later.',
+            'Free AI service is temporarily unavailable. Please try again shortly.',
             502,
             'AI_TEMPORARILY_UNAVAILABLE',
             true
@@ -621,4 +609,53 @@ export function getAiProvider(): IAiProvider {
  */
 export function setAiProvider(provider: IAiProvider | null): void {
   activeProvider = provider;
+}
+
+/**
+ * Safely extracts and parses JSON from AI model responses.
+ * Robust against free models that include markdown code fences (```json ... ```) or conversational preambles.
+ */
+export function extractJsonFromAiResponse(rawContent: string): any {
+  if (!rawContent || typeof rawContent !== 'string' || !rawContent.trim()) {
+    throw new AiProviderError('AI returned empty response content.', 502, 'EMPTY_AI_RESPONSE');
+  }
+
+  let cleaned = rawContent.trim();
+
+  // Strip code blocks if present
+  if (cleaned.includes('```')) {
+    const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      cleaned = codeBlockMatch[1].trim();
+    } else {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    }
+  }
+
+  // Find outer boundaries if text preambles exist
+  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
+    const firstBrace = cleaned.indexOf('{');
+    const firstBracket = cleaned.indexOf('[');
+
+    let startIdx = -1;
+    let endIdx = -1;
+
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      startIdx = firstBrace;
+      endIdx = cleaned.lastIndexOf('}');
+    } else if (firstBracket !== -1) {
+      startIdx = firstBracket;
+      endIdx = cleaned.lastIndexOf(']');
+    }
+
+    if (startIdx !== -1 && endIdx > startIdx) {
+      cleaned = cleaned.substring(startIdx, endIdx + 1).trim();
+    }
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (err: any) {
+    throw new AiProviderError(`AI response could not be parsed as JSON: ${err.message}`, 502, 'MALFORMED_AI_JSON');
+  }
 }

@@ -604,7 +604,7 @@ async function runAiKeywordTests() {
   );
 
   // ---------------------------------------------------------------------------
-  // TEST 15: OpenRouterProvider maps tasks to suitable cost-effective models
+  // TEST 15: OpenRouterProvider maps tasks to verified free-tier models
   // ---------------------------------------------------------------------------
   const orProvider = new OpenRouterProvider();
   const chatConfig = orProvider.getModelConfigForTask('chat');
@@ -612,15 +612,18 @@ async function runAiKeywordTests() {
   const seoConfig = orProvider.getModelConfigForTask('seo_analysis');
   const articleConfig = orProvider.getModelConfigForTask('article_generation');
 
-  const modelsValid =
-    chatConfig.primary === 'openai/gpt-4o-mini' &&
-    kwConfig.primary === 'openai/gpt-4o-mini' &&
-    seoConfig.primary === 'google/gemini-2.5-flash' &&
-    articleConfig.primary === 'deepseek/deepseek-chat';
+  const allModelsFree =
+    chatConfig.primary === 'openrouter/free' &&
+    kwConfig.primary === 'openrouter/free' &&
+    seoConfig.primary === 'openrouter/free' &&
+    articleConfig.primary === 'openrouter/free' &&
+    [...chatConfig.fallbacks, ...kwConfig.fallbacks, ...seoConfig.fallbacks, ...articleConfig.fallbacks].every(
+      (m) => m === 'openrouter/free' || m.endsWith(':free')
+    );
 
   assert(
-    modelsValid,
-    'Test 15: OpenRouterProvider configures cost-effective models per task (chat: gpt-4o-mini, keywords: gpt-4o-mini, seo: gemini-2.5-flash, article: deepseek-chat)',
+    allModelsFree,
+    'Test 15: OpenRouterProvider maps all tasks to free-tier models (openrouter/free) and free fallbacks exclusively',
     `Chat: ${chatConfig.primary}, KW: ${kwConfig.primary}, SEO: ${seoConfig.primary}, Article: ${articleConfig.primary}`
   );
 

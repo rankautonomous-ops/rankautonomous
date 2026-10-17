@@ -1,4 +1,4 @@
-import { getAiProvider, AiProviderError } from './aiProvider';
+import { getAiProvider, extractJsonFromAiResponse, AiProviderError } from './aiProvider';
 
 export type SearchIntentType = 'informational' | 'commercial' | 'transactional' | 'navigational';
 
@@ -134,31 +134,10 @@ export function validateAndParseAiKeywords(
     throw new AiServiceValidationError('AI provider returned empty content.', 502);
   }
 
-  let cleaned = rawContent.trim();
-
-  // Strip accidental markdown code blocks if present (```json ... ```)
-  if (cleaned.includes('```')) {
-    const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    if (codeBlockMatch && codeBlockMatch[1]) {
-      cleaned = codeBlockMatch[1].trim();
-    } else {
-      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    }
-  }
-
-  // If not starting with '{' or '[', attempt to locate outer JSON boundaries
-  if (!cleaned.startsWith('{') && !cleaned.startsWith('[')) {
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      cleaned = cleaned.substring(firstBrace, lastBrace + 1).trim();
-    }
-  }
-
   let parsed: any;
   try {
-    parsed = JSON.parse(cleaned);
-  } catch {
+    parsed = extractJsonFromAiResponse(rawContent);
+  } catch (err: any) {
     throw new AiServiceValidationError('AI provider returned malformed JSON.', 502);
   }
 

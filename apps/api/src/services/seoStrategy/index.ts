@@ -1,5 +1,5 @@
 import prisma from '../../lib/database';
-import { getAiProvider } from '../aiProvider';
+import { getAiProvider, extractJsonFromAiResponse } from '../aiProvider';
 import { buildStrategyPrompt } from './prompt';
 import { validateStrategyOutput } from './schema';
 
@@ -78,14 +78,7 @@ export async function startSeoStrategy(strategyId: string) {
       temperature: 0.2 // Lower temp for more deterministic structure
     });
 
-    // 6. Validate Output
-    let parsed: any;
-    try {
-      parsed = JSON.parse(resultJsonStr);
-    } catch (e) {
-      throw new Error('AI returned invalid JSON');
-    }
-
+    const parsed = extractJsonFromAiResponse(resultJsonStr);
     const validatedStrategy = validateStrategyOutput(parsed);
 
     // 7. Save and Complete

@@ -1,5 +1,5 @@
 import prisma from '../../lib/database';
-import { getAiProvider, AiProviderError } from '../aiProvider';
+import { getAiProvider, extractJsonFromAiResponse, AiProviderError } from '../aiProvider';
 import { buildContentGenerationPrompt, buildContentReviewPrompt } from './prompt';
 import { validateContentGenerationOutput, validateContentReviewOutput } from './schema';
 
@@ -94,13 +94,7 @@ export async function generateArticle(jobId: string): Promise<void> {
       maxTokens: 4000
     });
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(resultJsonStr);
-    } catch {
-      throw new Error('AI returned invalid JSON');
-    }
-
+    const parsed = extractJsonFromAiResponse(resultJsonStr);
     const validated = validateContentGenerationOutput(parsed);
 
     // Strict internal-links validation: filter against known crawled URLs to prevent fabrication
@@ -218,13 +212,7 @@ export async function reviewArticle(jobId: string): Promise<void> {
       maxTokens: 2000
     });
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(resultJsonStr);
-    } catch {
-      throw new Error('AI returned invalid JSON');
-    }
-
+    const parsed = extractJsonFromAiResponse(resultJsonStr);
     const validated = validateContentReviewOutput(parsed);
 
     await prisma.article.update({
