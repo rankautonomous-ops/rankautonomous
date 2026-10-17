@@ -167,7 +167,7 @@ export class OpenRouterProvider implements IAiProvider {
     const baseUrl = this.getBaseUrl();
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45-second safeguard timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60-second safeguard timeout
 
     try {
       const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -186,7 +186,7 @@ export class OpenRouterProvider implements IAiProvider {
             { role: 'user', content: options.userPrompt },
           ],
           temperature: options.temperature ?? 0.7,
-          max_tokens: options.maxTokens ?? 2500,
+          max_tokens: options.maxTokens ?? 4000,
           response_format:
             options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
         }),
@@ -251,7 +251,12 @@ export class OpenRouterProvider implements IAiProvider {
       }
 
       const data: any = await response.json();
-      const content = data?.choices?.[0]?.message?.content;
+      let content = data?.choices?.[0]?.message?.content;
+
+      // Some reasoning-focused free models emit reasoning text in reasoning / reasoning_details
+      if ((typeof content !== 'string' || !content.trim()) && data?.choices?.[0]?.message?.reasoning) {
+        content = data.choices[0].message.reasoning;
+      }
 
       if (typeof content !== 'string' || !content.trim()) {
         throw new AiProviderError('OpenRouter returned empty response content.', 502);
@@ -261,7 +266,7 @@ export class OpenRouterProvider implements IAiProvider {
     } catch (err: any) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        throw new AiProviderError('OpenRouter request timed out after 45 seconds.', 504);
+        throw new AiProviderError('OpenRouter request timed out after 60 seconds.', 504);
       }
       if (err instanceof AiProviderError) {
         throw err;
@@ -656,6 +661,10 @@ export function extractJsonFromAiResponse(rawContent: string): any {
   try {
     return JSON.parse(cleaned);
   } catch (err: any) {
-    throw new AiProviderError(`AI response could not be parsed as JSON: ${err.message}`, 502, 'MALFORMED_AI_JSON');
+    try {
+      const fixed = cleaned.replace(/,\s*([\]}])/g, '$1');
+      return JSON.parse(fixed);
+    } catch {}
+    throw new AiProviderError(`AI returned invalid JSON: ${err.message}`, 502, 'MALFORMED_AI_JSON');
   }
 }

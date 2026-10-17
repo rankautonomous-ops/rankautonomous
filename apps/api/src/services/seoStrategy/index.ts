@@ -75,7 +75,8 @@ export async function startSeoStrategy(strategyId: string) {
       systemPrompt,
       userPrompt,
       responseFormat: 'json_object',
-      temperature: 0.2 // Lower temp for more deterministic structure
+      temperature: 0.2, // Lower temp for more deterministic structure
+      maxTokens: 4000
     });
 
     const parsed = extractJsonFromAiResponse(resultJsonStr);
