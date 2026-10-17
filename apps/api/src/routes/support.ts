@@ -105,6 +105,7 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const aiProvider = getAiProvider();
     const responseText = await aiProvider.generateCompletion({
+      task: 'chat',
       systemPrompt: contextualPrompt,
       userPrompt: conversationHistory,
       maxTokens: 500,

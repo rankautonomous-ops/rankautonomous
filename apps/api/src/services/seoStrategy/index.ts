@@ -71,6 +71,7 @@ export async function startSeoStrategy(strategyId: string) {
     // 5. Call AI
     const ai = getAiProvider();
     const resultJsonStr = await ai.generateCompletion({
+      task: 'seo_analysis',
       systemPrompt,
       userPrompt,
       responseFormat: 'json_object',

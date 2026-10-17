@@ -5,6 +5,8 @@ import prisma from '../lib/database';
 import {
   setAiProvider,
   getAiProvider,
+  isOpenRouterConfigured,
+  OpenRouterProvider,
   isGeminiConfigured,
   GeminiProvider,
   IAiProvider,
@@ -558,6 +560,68 @@ async function runAiKeywordTests() {
     isGeminiInstance,
     'Test 12: getAiProvider instantiates GeminiProvider when AI_PROVIDER=gemini',
     `Type: ${providerInstance.constructor.name}`
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 13: isOpenRouterConfigured detection
+  // ---------------------------------------------------------------------------
+  const origOpenRouterKey = process.env.OPENROUTER_API_KEY;
+  process.env.AI_PROVIDER = 'openrouter';
+  const openRouterByProvider = isOpenRouterConfigured();
+
+  delete process.env.AI_PROVIDER;
+  process.env.OPENROUTER_API_KEY = 'sk-or-v1-testkey12345';
+  const openRouterByKey = isOpenRouterConfigured();
+
+  process.env.AI_PROVIDER = 'gemini';
+  const openRouterSuppressedByGemini = isOpenRouterConfigured();
+
+  // Reset
+  if (origProvider !== undefined) process.env.AI_PROVIDER = origProvider; else delete process.env.AI_PROVIDER;
+  if (origOpenRouterKey !== undefined) process.env.OPENROUTER_API_KEY = origOpenRouterKey; else delete process.env.OPENROUTER_API_KEY;
+
+  assert(
+    openRouterByProvider && openRouterByKey && !openRouterSuppressedByGemini,
+    'Test 13: isOpenRouterConfigured detects OpenRouter via AI_PROVIDER=openrouter or OPENROUTER_API_KEY',
+    `Provider: ${openRouterByProvider}, Key: ${openRouterByKey}, Suppressed: ${!openRouterSuppressedByGemini}`
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 14: getAiProvider instantiates OpenRouterProvider when configured
+  // ---------------------------------------------------------------------------
+  setAiProvider(null);
+  process.env.AI_PROVIDER = 'openrouter';
+  const openRouterProviderInstance = getAiProvider();
+  const isOpenRouterInstance = openRouterProviderInstance instanceof OpenRouterProvider;
+
+  // Cleanup env
+  if (origProvider !== undefined) process.env.AI_PROVIDER = origProvider; else delete process.env.AI_PROVIDER;
+
+  assert(
+    isOpenRouterInstance,
+    'Test 14: getAiProvider instantiates OpenRouterProvider when configured for OpenRouter',
+    `Type: ${openRouterProviderInstance.constructor.name}`
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 15: OpenRouterProvider maps tasks to suitable cost-effective models
+  // ---------------------------------------------------------------------------
+  const orProvider = new OpenRouterProvider();
+  const chatConfig = orProvider.getModelConfigForTask('chat');
+  const kwConfig = orProvider.getModelConfigForTask('keywords');
+  const seoConfig = orProvider.getModelConfigForTask('seo_analysis');
+  const articleConfig = orProvider.getModelConfigForTask('article_generation');
+
+  const modelsValid =
+    chatConfig.primary === 'openai/gpt-4o-mini' &&
+    kwConfig.primary === 'openai/gpt-4o-mini' &&
+    seoConfig.primary === 'google/gemini-2.5-flash' &&
+    articleConfig.primary === 'deepseek/deepseek-chat';
+
+  assert(
+    modelsValid,
+    'Test 15: OpenRouterProvider configures cost-effective models per task (chat: gpt-4o-mini, keywords: gpt-4o-mini, seo: gemini-2.5-flash, article: deepseek-chat)',
+    `Chat: ${chatConfig.primary}, KW: ${kwConfig.primary}, SEO: ${seoConfig.primary}, Article: ${articleConfig.primary}`
   );
 
   // ---------------------------------------------------------------------------

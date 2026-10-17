@@ -78,6 +78,7 @@ export async function executeRecommendation(recommendationId: string, websiteId:
       // AI assistance to suggest changes
       // This is LEVEL 2 AI-ASSISTED, would return suggested changes rather than modifying code directly.
       const changes = await ai.generateCompletion({
+        task: 'seo_analysis',
         systemPrompt: 'You are an SEO assistant.',
         userPrompt: 'Suggest 3 optimizations for ' + (rec.targetUrl || 'this page') + ' focusing on ' + (rec.targetKeyword || 'SEO')
       });
@@ -94,6 +95,7 @@ export async function executeRecommendation(recommendationId: string, websiteId:
     case 'FIX_TECHNICAL_ISSUE':
       // safe automatic modification impossible -> clear implementation instruction
       const instructions = await ai.generateCompletion({
+        task: 'seo_analysis',
         systemPrompt: 'You are an expert SEO developer.',
         userPrompt: 'Write a step-by-step developer guide to fix: ' + rec.description
       });

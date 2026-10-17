@@ -238,6 +238,7 @@ export async function generateKeywordSuggestions(
   const userPrompt = buildUserPrompt(context);
 
   const rawResponse = await provider.generateCompletion({
+    task: 'keywords',
     systemPrompt,
     userPrompt,
     temperature: 0.65,

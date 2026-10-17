@@ -86,6 +86,7 @@ export async function generateArticle(jobId: string): Promise<void> {
 
     const ai = getAiProvider();
     const resultJsonStr = await ai.generateCompletion({
+      task: 'article_generation',
       systemPrompt,
       userPrompt,
       responseFormat: 'json_object',
@@ -209,6 +210,7 @@ export async function reviewArticle(jobId: string): Promise<void> {
 
     const ai = getAiProvider();
     const resultJsonStr = await ai.generateCompletion({
+      task: 'article_review',
       systemPrompt,
       userPrompt,
       responseFormat: 'json_object',
