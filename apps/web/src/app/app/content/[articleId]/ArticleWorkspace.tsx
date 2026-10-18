@@ -464,11 +464,32 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
 
           {article.status === 'DRAFT' && (
             <>
+              {(!article.content || !editedContent) ? (
+                <button 
+                  className={styles.primaryButton} 
+                  disabled={isProcessing}
+                  onClick={() => handleAction('generate')}
+                  style={{ width: '100%', marginBottom: '8px' }}
+                >
+                  <Sparkles size={16} /> Generate with AI
+                </button>
+              ) : (
+                <button 
+                  className={styles.secondaryButton} 
+                  disabled={isProcessing}
+                  onClick={() => handleAction('generate')}
+                  style={{ width: '100%', marginBottom: '8px' }}
+                  title="Re-generate content using AI"
+                >
+                  <RefreshCw size={14} /> Re-generate with AI
+                </button>
+              )}
+
               <button 
                 className={styles.secondaryButton} 
                 disabled={isProcessing || !article.content}
                 onClick={() => handleAction('review')}
-                style={{ width: '100%' }}
+                style={{ width: '100%', marginBottom: '8px' }}
               >
                 <RefreshCw size={16} className={isProcessing ? 'animate-spin' : ''} />
                 Request AI Review
@@ -476,7 +497,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
               
               <button 
                 className={styles.primaryButton} 
-                disabled={isProcessing}
+                disabled={isProcessing || (!article.content && !editedContent)}
                 onClick={() => handleAction('transition', { targetStatus: 'USER_REVIEW' })}
                 style={{ width: '100%' }}
               >
@@ -742,7 +763,7 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 {saveSuccess && <span style={{ color: 'var(--success)', fontSize: '13px', fontWeight: 600 }}>✓ Saved!</span>}
                 <button
                   onClick={saveArticle}
@@ -751,6 +772,16 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                 >
                   Save Changes
                 </button>
+                {article.status !== 'PUBLISHED' && article.status !== 'GENERATING' && (
+                  <button
+                    onClick={() => handleAction('generate')}
+                    disabled={isProcessing}
+                    className={styles.primaryButton}
+                    style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Sparkles size={14} /> {editedContent || article.content ? 'Re-generate with AI' : 'Generate with AI'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -788,6 +819,49 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
               </div>
             ) : (
               <div>
+                {!editedContent && !article.content && (
+                  <div style={{
+                    padding: '28px 24px',
+                    background: 'var(--surface-soft, #fbf8f5)',
+                    border: '1px dashed var(--border, #ded9d4)',
+                    borderRadius: '12px',
+                    marginBottom: '24px',
+                    textAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}>
+                    <div style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      background: '#fee2e2',
+                      color: '#8c423d',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Sparkles size={22} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
+                        Draft Ready for AI Generation
+                      </h3>
+                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '480px', lineHeight: 1.5 }}>
+                        Keyword: <strong>{article.primaryKeyword || article.topic}</strong>. Click below to automatically write a full SEO-optimized article with semantic HTML headings, NLP terms, and meta tags.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleAction('generate')}
+                      disabled={isProcessing}
+                      className={styles.primaryButton}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 22px', fontSize: '14px' }}
+                    >
+                      <Sparkles size={16} /> Generate Article with AI
+                    </button>
+                  </div>
+                )}
                 {/* Metadata editor */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div className={styles.formGroup}>
