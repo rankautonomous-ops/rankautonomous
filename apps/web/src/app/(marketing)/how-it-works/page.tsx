@@ -30,14 +30,14 @@ export default function HowItWorksPage() {
           </p>
         </div>
 
-        <div className={styles.contentBlock} style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent)' }}>
+        <div className={styles.contentBlock}>
           <div style={{ fontSize: '13px', fontWeight: '800', color: '#8c423d', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '12px' }}>
             Stage 02
           </div>
           <h2 style={{ fontSize: '26px', fontWeight: '700', color: 'var(--text)', marginBottom: '14px', letterSpacing: '-0.02em' }}>
             Create
           </h2>
-          <p className={styles.prose} style={{ color: 'var(--text)' }}>
+          <p className={styles.prose}>
             Based on the analysis, our AI discovers low-competition keyword clusters and plans an autonomous publishing schedule. Our writing studio drafts comprehensive, rank-ready articles designed for search intent.
           </p>
         </div>

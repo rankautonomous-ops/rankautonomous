@@ -155,7 +155,7 @@ export default async function Home() {
             </div>
           </div>
 
-          <div className={`${styles.philosophyCard} ${styles.philosophyCardAccent}`}>
+          <div className={styles.philosophyCard}>
             <div>
               <div className={styles.philosophyWord}>CREATE</div>
               <p className={styles.philosophyDesc}>
