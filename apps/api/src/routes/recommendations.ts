@@ -38,10 +38,24 @@ recommendationsRouter.get('/', async (req, res) => {
     if (priority) where.priority = { in: Array.isArray(priority) ? priority : [priority] };
     if (sourceType) where.sourceType = { in: Array.isArray(sourceType) ? sourceType : [sourceType] };
 
-    const recs = await prisma.seoRecommendation.findMany({
+    let recs = await prisma.seoRecommendation.findMany({
       where,
       orderBy: { score: 'desc' }
     });
+
+    // If no recommendations exist yet and user hasn't specified filters, auto-evaluate from crawl/audit signals
+    if (recs.length === 0 && !status && !category && !priority && !sourceType) {
+      try {
+        await generateRecommendations(websiteId);
+        recs = await prisma.seoRecommendation.findMany({
+          where,
+          orderBy: { score: 'desc' }
+        });
+      } catch (genErr) {
+        console.error('Auto-generate recommendations on GET error:', genErr);
+      }
+    }
+
     res.status(200).json(recs);
   } catch (error: any) {
     console.error('Error fetching recommendations:', error);

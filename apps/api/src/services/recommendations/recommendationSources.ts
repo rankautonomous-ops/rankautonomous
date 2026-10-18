@@ -85,21 +85,27 @@ export async function collectSignals(websiteId: string): Promise<CandidateRecomm
       const data = comp.analysisData as any;
       if (data.contentGaps && Array.isArray(data.contentGaps)) {
         for (const gap of data.contentGaps) {
+          const gapTopic = typeof gap === 'string' ? gap : (gap.topic || gap.suggestedTitle || 'Competitor Topic');
+          const gapDesc = typeof gap === 'string'
+            ? `Your competitor ${comp.domain} covers "${gap}", but you do not.`
+            : (gap.reason || `Your competitor ${comp.domain} covers "${gapTopic}", but you do not.`);
+          const gapKeyword = typeof gap === 'string' ? gap : (gap.topic || gap.suggestedTitle || gapTopic);
+
           candidates.push({
             websiteId,
             type: RecommendationActionType.CREATE_ARTICLE,
             category: RecommendationCategory.COMPETITOR,
-            title: `Cover competitor gap: ${gap}`,
-            description: `Your competitor ${comp.domain} covers "${gap}", but you do not.`,
+            title: `Cover competitor gap: ${gapTopic}`,
+            description: gapDesc,
             sourceType: 'COMPETITOR',
             sourceId: comp.id,
-            targetKeyword: gap,
+            targetKeyword: gapKeyword,
             automationType: AutomationType.AI_ASSISTED,
             rawImpact: 70,
             rawEffort: 60,
             rawConfidence: 75,
             rawOpportunity: 80,
-            deduplicationKey: `${websiteId}-COMPETITOR-CREATE-${gap.toLowerCase()}`,
+            deduplicationKey: `${websiteId}-COMPETITOR-CREATE-${String(gapKeyword).toLowerCase().substring(0, 50)}`,
           });
         }
       }

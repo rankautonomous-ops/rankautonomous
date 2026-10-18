@@ -18,11 +18,7 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
     try {
       setLoading(true);
       const apiUrl = getApiUrl();
-      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/reports`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('supabase_token')}`,
-        }
-      });
+      const res = await apiFetch(`${apiUrl}/api/websites/${website.id}/reports`);
       if (res.ok) {
         const data = await res.json();
         setReports(data.reports);
@@ -55,7 +51,6 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('supabase_token')}`,
         },
         body: JSON.stringify({ year, month })
       });
@@ -83,7 +78,7 @@ export default function ReportsDashboard({ initialWebsite }: { initialWebsite: a
         <button 
           onClick={generateReport} 
           disabled={generating}
-          style={{ width: '100%', padding: '8px', marginBottom: '16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '4px', cursor: generating ? 'not-allowed' : 'pointer' }}
+          style={{ width: '100%', padding: '9px 16px', marginBottom: '16px', background: 'var(--text, #111111)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: generating ? 'not-allowed' : 'pointer' }}
         >
           {generating ? 'Generating...' : 'Generate New Report'}
         </button>
