@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../../lib/supabase/client';
-import { Play, Check, X, RefreshCw, Edit3, Globe, ShieldCheck, Link as LinkIcon, Image, AlignLeft, Sparkles, ArrowLeft, ExternalLink, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Play, Check, X, RefreshCw, Edit3, Globe, ShieldCheck, Link as LinkIcon, Image, AlignLeft, Sparkles, ArrowLeft, ExternalLink, CheckCircle, AlertCircle, Loader2, Eye, Code, Copy } from 'lucide-react';
 import Link from 'next/link';
 import styles from '../../app.module.css';
 import contentStyles from '../content.module.css';
@@ -21,6 +21,8 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
   const [editedSlug, setEditedSlug] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'visual' | 'html'>('visual');
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // WordPress CMS state
   const [cmsConnections, setCmsConnections] = useState<any[]>([]);
@@ -894,16 +896,127 @@ export default function ArticleWorkspace({ articleId }: { articleId: string }) {
                   />
                 </div>
 
-                {/* Content Editor */}
+                {/* Content Editor with Visual & Code View Modes */}
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Article Body (Semantic HTML)</label>
-                  <textarea
-                    className={styles.textarea}
-                    style={{ minHeight: '500px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.6' }}
-                    value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    placeholder="Article content..."
-                  />
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '10px',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  }}>
+                    <label className={styles.label} style={{ margin: 0 }}>
+                      Article Body {viewMode === 'visual' ? '(Formatted Visual View)' : '(Semantic HTML Code)'}
+                    </label>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('visual')}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: viewMode === 'visual' ? 700 : 500,
+                          borderRadius: '6px',
+                          border: '1px solid',
+                          borderColor: viewMode === 'visual' ? '#111111' : 'var(--border, #ded9d4)',
+                          background: viewMode === 'visual' ? '#111111' : 'var(--surface, #ffffff)',
+                          color: viewMode === 'visual' ? '#ffffff' : 'var(--text-secondary, #5f5b58)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Eye size={13} /> Visual View
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewMode('html')}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: viewMode === 'html' ? 700 : 500,
+                          borderRadius: '6px',
+                          border: '1px solid',
+                          borderColor: viewMode === 'html' ? '#111111' : 'var(--border, #ded9d4)',
+                          background: viewMode === 'html' ? '#111111' : 'var(--surface, #ffffff)',
+                          color: viewMode === 'html' ? '#ffffff' : 'var(--text-secondary, #5f5b58)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Code size={13} /> HTML Code
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(editedContent);
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        }}
+                        style={{
+                          padding: '5px 10px',
+                          fontSize: '12px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border, #ded9d4)',
+                          background: 'var(--surface, #ffffff)',
+                          color: copySuccess ? 'var(--success, #2e6b3b)' : 'var(--text-secondary, #5f5b58)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                        title="Copy article HTML to clipboard"
+                      >
+                        {copySuccess ? <Check size={12} /> : <Copy size={12} />}
+                        {copySuccess ? 'Copied!' : 'Copy HTML'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {viewMode === 'visual' ? (
+                    <div 
+                      style={{
+                        minHeight: '520px',
+                        padding: '28px 32px',
+                        background: 'var(--surface, #ffffff)',
+                        border: '1px solid var(--border, #ded9d4)',
+                        borderRadius: 'var(--radius-sm, 10px)',
+                        overflowY: 'auto',
+                        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.02)'
+                      }}
+                    >
+                      {editedContent ? (
+                        <div 
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => setEditedContent(e.currentTarget.innerHTML)}
+                          dangerouslySetInnerHTML={{ __html: editedContent }}
+                          className={contentStyles.renderedArticle}
+                        />
+                      ) : (
+                        <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>
+                          No content generated yet. Click &ldquo;Generate Article with AI&rdquo; above.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <textarea
+                      className={styles.textarea}
+                      style={{ minHeight: '520px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.6' }}
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      placeholder="Article content..."
+                    />
+                  )}
                 </div>
 
                 {/* Headings & Structure */}
