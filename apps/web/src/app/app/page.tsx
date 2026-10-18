@@ -425,21 +425,39 @@ export default async function AppDashboardPage() {
                   </div>
                 )}
 
-                <div className={styles.attentionItem}>
+                <Link
+                  href="/app/keywords"
+                  className={styles.attentionItem}
+                  style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+                >
                   <div className={styles.attentionNumber}>02</div>
                   <div className={styles.attentionContent}>
-                    <div className={styles.attentionTitle}>Review seeded keyword strategy</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div className={styles.attentionTitle} style={{ margin: 0 }}>Review seeded keyword strategy</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                        <ArrowRight size={14} />
+                      </div>
+                    </div>
                     <div className={styles.attentionSub}>Verify search intent and target search volumes in Keyword Workspace.</div>
                   </div>
-                </div>
+                </Link>
 
-                <div className={styles.attentionItem}>
+                <Link
+                  href="/app/content"
+                  className={styles.attentionItem}
+                  style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+                >
                   <div className={styles.attentionNumber}>03</div>
                   <div className={styles.attentionContent}>
-                    <div className={styles.attentionTitle}>Generate first AI article</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div className={styles.attentionTitle} style={{ margin: 0 }}>Generate first AI article</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                        <ArrowRight size={14} />
+                      </div>
+                    </div>
                     <div className={styles.attentionSub}>Draft high-relevance rank content inside Content Engine.</div>
                   </div>
-                </div>
+                </Link>
               </div>
             </div>
 
