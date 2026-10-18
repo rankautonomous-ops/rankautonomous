@@ -136,7 +136,7 @@ export default async function Home() {
       </section>
 
       {/* PHILOSOPHY (Analyze -> Create -> Build -> Grow) */}
-      <section className={styles.section}>
+      <section id="how-it-works" className={styles.section} style={{ scrollMarginTop: '90px' }}>
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <div className={styles.sectionTag}>How RankAutonomous Works</div>
           <h2 className={styles.sectionTitle}>The Autonomous Growth Loop</h2>
@@ -181,6 +181,13 @@ export default async function Home() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: '36px' }}>
+          <Link href="/how-it-works" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600, color: '#8c423d', textDecoration: 'none' }}>
+            <span>Explore the complete workflow guide</span>
+            <ArrowRight size={15} />
+          </Link>
         </div>
       </section>
 
