@@ -86,32 +86,34 @@ export default async function AppDashboardPage() {
     try {
       const apiUrl = getApiUrl();
 
-      // 1. Fetch user sync info
-      const meRes = await apiFetch(`${apiUrl}/api/me`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        cache: 'no-store',
-      });
+      // 1. Fetch user sync info and active website in parallel with timeout protection
+      const [meRes, siteRes] = await Promise.all([
+        apiFetch(`${apiUrl}/api/me`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(15000),
+        }).catch((err) => ({ ok: false, status: 504, json: async () => ({ message: err.message }) } as unknown as Response)),
+        apiFetch(`${apiUrl}/api/websites/active`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(15000),
+        }).catch((err) => ({ ok: false, status: 504, json: async () => ({ message: err.message }) } as unknown as Response)),
+      ]);
 
       if (meRes.ok) {
-        apiUser = await meRes.json();
+        apiUser = await meRes.json().catch(() => null);
         apiStatus = 'Successfully connected and synchronized with PostgreSQL/Prisma.';
       } else {
         const errData = await meRes.json().catch(() => ({}));
         apiStatus = `API response status ${meRes.status}: ${errData.message || 'Authorization failed'}`;
       }
 
-      // 2. Fetch active website
-      const siteRes = await apiFetch(`${apiUrl}/api/websites/active`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        cache: 'no-store',
-      });
-
       if (siteRes.ok) {
-        const siteData = await siteRes.json();
+        const siteData = await siteRes.json().catch(() => ({}));
         activeWebsite = siteData.website || null;
         
         if (activeWebsite) {
@@ -120,9 +122,10 @@ export default async function AppDashboardPage() {
               Authorization: `Bearer ${session.access_token}`,
             },
             cache: 'no-store',
-          });
-          if (perfRes.ok) {
-            performanceData = await perfRes.json();
+            signal: AbortSignal.timeout(10000),
+          }).catch(() => null);
+          if (perfRes && perfRes.ok) {
+            performanceData = await perfRes.json().catch(() => null);
           }
         }
       }

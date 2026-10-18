@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Loader2 } from 'lucide-react';
 import styles from './marketing.module.css';
 
 interface HeaderNavProps {
@@ -11,8 +11,20 @@ interface HeaderNavProps {
 
 export default function HeaderNav({ sessionUser }: HeaderNavProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const closeMenu = () => setIsOpen(false);
+
+  // Proactively ping the backend API in the background on mount to wake up Render if asleep
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://rankautonomous-api.onrender.com';
+    fetch(`${apiUrl.replace(/\/+$/, '')}/health`, { mode: 'no-cors' }).catch(() => {});
+  }, []);
+
+  const prewarmBackend = () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://rankautonomous-api.onrender.com';
+    fetch(`${apiUrl.replace(/\/+$/, '')}/health`, { mode: 'no-cors' }).catch(() => {});
+  };
 
   return (
     <>
@@ -28,8 +40,21 @@ export default function HeaderNav({ sessionUser }: HeaderNavProps) {
       {/* Desktop Action Buttons */}
       <div className={styles.actions}>
         {sessionUser ? (
-          <Link href="/app" className={styles.primaryAction}>
-            Open Workspace →
+          <Link
+            href="/app"
+            className={styles.primaryAction}
+            onClick={() => setIsNavigating(true)}
+            onMouseEnter={prewarmBackend}
+            onFocus={prewarmBackend}
+          >
+            {isNavigating ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                Opening...
+              </span>
+            ) : (
+              'Open Workspace →'
+            )}
           </Link>
         ) : (
           <>
@@ -85,8 +110,15 @@ export default function HeaderNav({ sessionUser }: HeaderNavProps) {
 
             <div className={styles.mobileActions}>
               {sessionUser ? (
-                <Link href="/app" className={styles.mobilePrimaryAction} onClick={closeMenu}>
-                  Open Workspace →
+                <Link
+                  href="/app"
+                  className={styles.mobilePrimaryAction}
+                  onClick={() => {
+                    setIsNavigating(true);
+                    closeMenu();
+                  }}
+                >
+                  {isNavigating ? 'Opening Workspace...' : 'Open Workspace →'}
                 </Link>
               ) : (
                 <>

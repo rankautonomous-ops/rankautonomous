@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RankAutonomous — Complete User Manual & Workflow Guide</title>
+  <style>
+
+    @page {
+      size: A4 portrait;
+      margin: 16mm 14mm 16mm 14mm;
+      @bottom-right {
+        content: counter(page);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 9pt;
+        color: #64748b;
+      }
+      @bottom-left {
+        content: "RankAutonomous — Autonomous SEO & Content Platform";
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 9pt;
+        color: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.55;
+      color: #1e293b;
+      background: #ffffff;
+    }
+
+    .cover-page {
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 255mm;
+      padding: 20mm 10mm;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #311042 100%);
+      color: #ffffff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover-page::before {
+      content: "";
+      position: absolute;
+      top: -100px;
+      right: -100px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0,0,0,0) 70%);
+      border-radius: 50%;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      width: fit-content;
+      font-size: 9.5pt;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #a5b4fc;
+    }
+
+    .cover-title {
+      font-size: 32pt;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cover-subtitle {
+      font-size: 14pt;
+      font-weight: 400;
+      color: #94a3b8;
+      max-width: 500px;
+      line-height: 1.4;
+      margin-bottom: 25px;
+    }
+
+    .cover-meta {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      font-size: 9pt;
+      color: #cbd5e1;
+    }
+
+    .cover-meta strong {
+      display: block;
+      color: #ffffff;
+      font-size: 9.5pt;
+      margin-bottom: 2px;
+    }
+
+    .page {
+      page-break-after: always;
+      padding-top: 4mm;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1.5px solid #e2e8f0;
+      padding-bottom: 8px;
+      margin-bottom: 18px;
+    }
+
+    .page-header .doc-tag {
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #6366f1;
+    }
+
+    .page-header .brand-tag {
+      font-size: 8pt;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    h1 {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2 {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 16px;
+      margin-bottom: 8px;
+      border-left: 3.5px solid #4f46e5;
+      padding-left: 8px;
+    }
+
+    h3 {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #334155;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+
+    p {
+      margin-bottom: 9px;
+      color: #334155;
+      text-align: justify;
+    }
+
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    .callout {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #4f46e5;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin: 12px 0;
+      font-size: 9pt;
+    }
+
+    .callout-title {
+      font-weight: 700;
+      color: #1e1b4b;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .callout.tip {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+    .callout.tip .callout-title { color: #065f46; }
+
+    .callout.warn {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .callout.warn .callout-title { color: #92400e; }
+
+    .callout.danger {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+    .callout.danger .callout-title { color: #991b1b; }
+
+    .step-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .step-num {
+      background: #4f46e5;
+      color: #ffffff;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 8.5pt;
+      font-weight: 700;
+    }
+
+    .step-title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 8.5pt;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-primary { background: #e0e7ff; color: #3730a3; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+
+    .workflow-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 10px;
+      margin: 14px 0;
+    }
+
+    .diagram-node {
+      background: #ffffff;
+      border: 1.5px solid #4f46e5;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 8pt;
+      font-weight: 700;
+      text-align: center;
+      color: #1e1b4b;
+      min-width: 85px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .diagram-arrow {
+      color: #94a3b8;
+      font-size: 12pt;
+      font-weight: bold;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 10px 0;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5pt;
+      background: #f1f5f9;
+      padding: 2px 5px;
+      border-radius: 3px;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================= -->
+  <!-- COVER PAGE -->
+  <!-- ========================================================================= -->
+  <div class="cover-page">
+    <div>
+      <div class="brand-badge">Official Documentation</div>
+      <div class="cover-title">RankAutonomous<br>User Manual &amp; Complete Workflow Guide</div>
+      <div class="cover-subtitle">
+        A step-by-step operational handbook for mastering autonomous SEO, AI search visibility, programmatic content publishing, and organic traffic acceleration.
+      </div>
+    </div>
+
+    <div>
+      <div class="cover-meta">
+        <div>
+          <strong>Production Web Portal</strong>
+          https://www.rankautonomous.com
+        </div>
+        <div>
+          <strong>Backend API Engine</strong>
+          https://rankautonomous-api.onrender.com
+        </div>
+        <div>
+          <strong>AI Search Engine</strong>
+          OpenRouter Free Multi-Model Architecture
+        </div>
+        <div>
+          <strong>Document Version</strong>
+          Release 2.0 (Verified Free Inference Edition)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 1: OVERVIEW & ARCHITECTURE -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 1 &bull; Platform Overview</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>1. What is RankAutonomous?</h1>
+    <p>
+      <strong>RankAutonomous</strong> is an enterprise-grade, autonomous search engine optimization (SEO) and content intelligence platform designed to replace manual, tedious SEO agency workflows. By unifying deep crawling, algorithmic technical audits, semantic keyword discovery, autonomous article generation, and automated CMS publishing, RankAutonomous creates a continuous organic growth engine for your digital presence.
+    </p>
+
+    <h2>The Core Autonomous Loop</h2>
+    <p>RankAutonomous operates on a closed-loop system that continuously moves your website from raw diagnostic data to live indexed rankings:</p>
+
+    <div class="workflow-diagram">
+      <div class="diagram-node">1. Deep Crawl<br><span style="font-size:7pt; color:#64748b;">30+ URLs</span></div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-node">2. Technical Audit<br><span style="font-size:7pt; color:#64748b;">Health Score</span></div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-node">3. AI Strategy<br><span style="font-size:7pt; color:#64748b;">Keyword Map</span></div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-node">4. Content Engine<br><span style="font-size:7pt; color:#64748b;">Draft &amp; Review</span></div>
+      <div class="diagram-arrow">&rarr;</div>
+      <div class="diagram-node">5. Auto-Publish<br><span style="font-size:7pt; color:#64748b;">WordPress/Webflow</span></div>
+    </div>
+
+    <h2>Key Platform Capabilities</h2>
+    <div class="grid-2">
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title">Autonomous Content Pipeline</div>
+        </div>
+        <p style="font-size: 8.5pt;">Generates comprehensive 1,200 to 2,000-word SEO articles with verified internal link grounding, markdown structure, and metadata — published directly to your CMS.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title">Zero-Cost AI Inference</div>
+        </div>
+        <p style="font-size: 8.5pt;">Engineered to run seamlessly on verified free AI models via OpenRouter (e.g. <code>openrouter/free</code>), ensuring zero API bills, zero surprise invoices, and high-uptime fallbacks.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title">Anti-Hallucination Guardrails</div>
+        </div>
+        <p style="font-size: 8.5pt;">Strict internal link validation compares every suggested hyperlinked page against real crawled URLs. The engine strictly forbids metric fabrication and spam link schemes.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title">Multi-Platform CMS Sync</div>
+        </div>
+        <p style="font-size: 8.5pt;">Native adapters for WordPress REST API, Webflow Collections, Shopify, and custom REST webhooks allow one-click approvals or automated scheduled releases.</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Guiding Principle: Evidence-Based Optimization</div>
+      Unlike generic AI writers that fabricate citations and hallucinate statistics, RankAutonomous grounds every recommendation in crawl telemetry and genuine Google Search Console data.
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 2: ACCOUNT CREATION & 5-STEP ONBOARDING -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 2 &bull; Setup &amp; Onboarding</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>2. Account Setup &amp; 5-Step Onboarding</h1>
+    <p>
+      Setting up your first website takes under 5 minutes. The guided onboarding wizard captures your domain DNA to tailor every keyword recommendation, audit check, and article to your exact market.
+    </p>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Step 1: Website Profile &amp; Localization</div>
+      </div>
+      <p style="font-size: 9pt;">
+        Navigate to <code>https://www.rankautonomous.com/signup</code>. Create your account with your work email and an 8+ character password. Upon email confirmation, you will land on the onboarding wizard:
+      </p>
+      <ul style="font-size: 8.5pt;">
+        <li><strong>Website URL:</strong> Enter your live root domain (e.g., <code>https://yourcompany.com</code>). Validated for HTTPS and DNS reachability.</li>
+        <li><strong>Business Name:</strong> The official public brand name used in metadata and titles.</li>
+        <li><strong>Industry:</strong> Select your vertical (SaaS, E-Commerce, Professional Services, Healthcare, etc.).</li>
+        <li><strong>Language &amp; Target Country:</strong> Configures regional search intent engines (e.g., US, UK, Global).</li>
+      </ul>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Step 2: Business Positioning &amp; Primary Goals</div>
+      </div>
+      <p style="font-size: 9pt;">
+        Specify who you are selling to and what success means for your organic strategy:
+      </p>
+      <ul style="font-size: 8.5pt;">
+        <li><strong>Target Audience:</strong> Define your ideal customer profile (e.g. <em>"B2B Engineering Directors looking for IoT hardware prototypes"</em>).</li>
+        <li><strong>SEO Goals:</strong> Select up to 3 core goals (e.g. <em>Increase Organic Traffic</em>, <em>Rank for Commercial Keywords</em>, <em>Generate Inbound Leads</em>).</li>
+        <li><strong>Geographic Scope:</strong> Choose Global (worldwide) or Country-Specific targeting.</li>
+      </ul>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Step 3: Competitor Setup</div>
+      </div>
+      <p style="font-size: 9pt;">
+        Add 1 to 5 competitor domain URLs. RankAutonomous will crawl and analyze their content strategy, finding high-value keywords they rank for that your site is missing.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Step 4: Platform &amp; CMS Selection</div>
+      </div>
+      <p style="font-size: 9pt;">
+        Select your hosting/CMS platform: <strong>WordPress</strong>, <strong>Shopify</strong>, <strong>Webflow</strong>, or <strong>Custom/API</strong>. This sets up publishing pipelines for your content calendar.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">5</div>
+        <div class="step-title">Step 5: Seed Keywords &amp; Instant AI Generation</div>
+      </div>
+      <p style="font-size: 9pt;">
+        Input 3 to 10 foundational seed keywords. Click the <span class="badge badge-primary">Generate AI Keyword Suggestions</span> button. The AI will instantly return 20+ commercial and transactional keywords with search intent tags and strategic rationale. Click <strong>Finish Onboarding</strong> to launch your workspace.
+      </p>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 3: THE AUDIT & STRATEGY ENGINE -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 3 &bull; Audits &amp; Strategy</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>3. Website Audit &amp; AI Strategy Engine</h1>
+    <p>
+      Once onboarding finishes, RankAutonomous immediately deploys its crawling worker to map your site architecture and evaluate on-page technical health.
+    </p>
+
+    <h2>The Autonomous Crawl &amp; Technical Audit</h2>
+    <p>
+      Navigate to <strong>Overview</strong> (<code>/app</code>). The system executes an automated crawl of up to 100 pages, inspecting:
+    </p>
+    <ul style="font-size: 9pt;">
+      <li><strong>HTTP Status Codes:</strong> 200 OK, 301/302 redirect loops, 404 broken links, and 500 server errors.</li>
+      <li><strong>Title &amp; Meta Descriptions:</strong> Missing tags, duplicate titles, and suboptimal character lengths.</li>
+      <li><strong>Content Depth:</strong> Thin content detection (&lt;300 words), low text-to-HTML ratio, and missing H1 tags.</li>
+      <li><strong>Internal Link Topology:</strong> Orphan pages, deep-click paths (&gt;3 clicks from home), and broken anchor references.</li>
+      <li><strong>Performance Signals:</strong> Slow server response times, uncompressed assets, and viewport configuration.</li>
+    </ul>
+
+    <div class="callout tip">
+      <div class="callout-title">Understanding Your SEO Health Score</div>
+      Your site receives a composite Health Score from 0 to 100:
+      <ul style="margin-top: 4px; margin-bottom: 0;">
+        <li><strong style="color:#166534;">90 – 100 (Optimal):</strong> Clean architecture, indexed pages, solid link graphs.</li>
+        <li><strong style="color:#92400e;">70 – 89 (Action Required):</strong> Minor technical defects, metadata gaps, or slow pages.</li>
+        <li><strong style="color:#991b1b;">0 – 69 (Critical):</strong> Broken redirects, indexing blocks, or pervasive duplicate content.</li>
+      </ul>
+    </div>
+
+    <h2>Generating Your AI SEO Strategy</h2>
+    <p>
+      On the Overview page, click <span class="badge badge-primary">Generate SEO Strategy</span>. The engine merges your verified crawl data, technical audit issues, and business profile into a customized Master Strategy:
+    </p>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-title">Key Strategy Deliverables</div>
+      </div>
+      <table style="margin-top: 6px;">
+        <thead>
+          <tr>
+            <th>Strategy Component</th>
+            <th>Description &amp; Actionability</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Executive Summary</strong></td>
+            <td>High-level assessment of current topical authority, traffic constraints, and fastest paths to organic ROI.</td>
+          </tr>
+          <tr>
+            <td><strong>Priority Actions</strong></td>
+            <td>Ranked list of fixes categorized into <span class="badge badge-danger">Critical</span>, <span class="badge badge-warning">High</span>, and <span class="badge badge-primary">Medium</span> with affected URLs.</td>
+          </tr>
+          <tr>
+            <td><strong>Keyword Themes</strong></td>
+            <td>Strategic clusters organized by intent (Commercial, Transactional, Informational) with recommended target landing pages.</td>
+          </tr>
+          <tr>
+            <td><strong>Content Roadmap</strong></td>
+            <td>Specific planned topics designed to capture immediate organic demand and build internal link clusters.</td>
+          </tr>
+          <tr>
+            <td><strong>Technical Roadmap</strong></td>
+            <td>Step-by-step developer tasks to resolve crawl errors and boost Core Web Vitals.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 4: KEYWORD INTELLIGENCE & CLUSTERING -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 4 &bull; Keyword Workspace</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>4. Keyword Research &amp; Opportunity Scoring</h1>
+    <p>
+      Targeting the right keywords determines 90% of SEO success. The <strong>Keywords</strong> workspace (<code>/app/keywords</code>) combines search intent classification, difficulty metrics, and opportunity scoring.
+    </p>
+
+    <h2>Understanding Search Intent Classification</h2>
+    <p>Every keyword in RankAutonomous is automatically classified into one of four search intent buckets:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Intent Type</th>
+          <th>What the Searcher Wants</th>
+          <th>Recommended Content Format</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-danger">Transactional</span></td>
+          <td>Ready to buy, subscribe, or request a demo (e.g. <em>"buy predictive seo software"</em>).</td>
+          <td>Product landing page, pricing page, checkout flow.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-warning">Commercial</span></td>
+          <td>Comparing options, reading reviews, researching vendors (e.g. <em>"best ai seo tools 2026"</em>).</td>
+          <td>Comparison guides, listicles, product feature breakdowns.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-primary">Informational</span></td>
+          <td>Learning concepts, solving problems (e.g. <em>"how to fix crawl budget waste"</em>).</td>
+          <td>In-depth tutorial, ultimate guide, how-to blog post.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-success">Navigational</span></td>
+          <td>Finding a specific branded website or portal (e.g. <em>"rankautonomous login"</em>).</td>
+          <td>Homepage, portal entry point, direct branded page.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>The Opportunity Score Formula</h2>
+    <p>
+      Instead of guessing which keywords to write about first, RankAutonomous computes a deterministic <strong>Opportunity Score (0 to 100)</strong> using:
+    </p>
+    <div class="callout">
+      <code>Opportunity Score = (Normalized Volume &times; 0.40) + ((100 - Difficulty) &times; 0.35) + (Intent Weight &times; 0.25)</code>
+      <div style="font-size:8pt; color:#64748b; margin-top:4px;">
+        High-volume, low-difficulty keywords with commercial/transactional intent score 80–100 and should be prioritized immediately.
+      </div>
+    </div>
+
+    <h2>How to Add and Manage Keywords</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">&bull;</div>
+        <div class="step-title">Three Ways to Populate Your Keyword List</div>
+      </div>
+      <ol style="font-size: 8.5pt; margin-left: 18px;">
+        <li><strong>AI Keyword Generator:</strong> Click <em>"Generate AI Keywords"</em> on the workspace to receive dozens of vetted search queries tailored to your industry.</li>
+        <li><strong>Manual Addition:</strong> Type your target term, select intent, and enter estimated volume to track custom niche terms.</li>
+        <li><strong>Competitor Gaps:</strong> Import keywords discovered during competitor analysis in the Competitor dashboard.</li>
+      </ol>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Pro Tip: One Click to Article</div>
+      From the Keywords table, click the <strong>"Create Article"</strong> action next to any keyword. RankAutonomous will instantly pre-populate an article brief with that keyword set as the primary target!
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 5: THE CONTENT ENGINE & PUBLISHING PIPELINE -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 5 &bull; Content Engine</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>5. Autonomous Content Engine &amp; Publishing</h1>
+    <p>
+      The <strong>Content Engine</strong> (<code>/app/content</code>) is the core autonomous publishing machine. It transforms approved keywords into comprehensive, fully-formatted articles and schedules them to your CMS.
+    </p>
+
+    <h2>The 5-Stage Content Lifecycle</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Stage</th>
+          <th>Status</th>
+          <th>What Happens Behind the Scenes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Planned</strong></td>
+          <td><span class="badge badge-primary">PLANNED</span></td>
+          <td>Article record created with title, primary keyword, target word count (e.g. 1,600), tone, and schedule date.</td>
+        </tr>
+        <tr>
+          <td><strong>2. Generating</strong></td>
+          <td><span class="badge badge-warning">GENERATING</span></td>
+          <td>AI worker crafts comprehensive markdown text, headings (H2, H3), meta description, slug, and verified internal links.</td>
+        </tr>
+        <tr>
+          <td><strong>3. Review Ready</strong></td>
+          <td><span class="badge badge-primary">REVIEW_READY</span></td>
+          <td>Automated quality reviewer analyzes the draft for keyword density, E-E-A-T signals, readability, and link integrity.</td>
+        </tr>
+        <tr>
+          <td><strong>4. Approved</strong></td>
+          <td><span class="badge badge-success">APPROVED</span></td>
+          <td>You or your editor review and approve the draft. Ready for automated or manual push to CMS.</td>
+        </tr>
+        <tr>
+          <td><strong>5. Published</strong></td>
+          <td><span class="badge badge-success">PUBLISHED</span></td>
+          <td>Article is published live via WordPress REST API or Webflow Collection. Immutable &amp; locked against overwrite.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Step-by-Step: Generating Your First Article</h2>
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Create or Select a Planned Article</div>
+      </div>
+      <p style="font-size: 8.5pt;">In <code>/app/content</code>, click <strong>"Plan New Article"</strong>. Enter the topic, primary keyword, desired word count (recommended: 1,400–1,800), and tone (e.g. <em>Authoritative, Professional</em>).</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Trigger AI Generation</div>
+      </div>
+      <p style="font-size: 8.5pt;">Click <strong>"Generate Article"</strong>. The AI provider generates the full article in ~15–30 seconds. RankAutonomous inspects your crawled pages to weave natural, contextual internal links to your existing products and services.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Run Automated Quality Review</div>
+      </div>
+      <p style="font-size: 8.5pt;">Click <strong>"Run AI Review"</strong>. The engine generates an objective Quality Score (0–100) and gives you specific suggestions on headline hooks, intro conciseness, and call-to-action clarity.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Approve and Publish to CMS</div>
+      </div>
+      <p style="font-size: 8.5pt;">Review the formatted markdown in the built-in editor. When satisfied, click <strong>"Approve"</strong>. Then click <strong>"Publish to CMS"</strong> to send it live immediately, or let the Content Calendar release it on your scheduled date.</p>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Publishing Safety Lock</div>
+      Once an article reaches <code>PUBLISHED</code> status, RankAutonomous locks the content to prevent accidental overwrites or duplicate CMS posts.
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 6: CMS & GOOGLE INTEGRATIONS -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 6 &bull; Integrations</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>6. CMS Connections &amp; Google Integrations</h1>
+    <p>
+      Connecting your publishing platforms and Google analytics tools unlocks the full power of automated publishing and real-time organic rank tracking.
+    </p>
+
+    <h2>Connecting Your CMS (Integrations &rarr; CMS Connections)</h2>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-title">WordPress Setup (Recommended)</div>
+      </div>
+      <p style="font-size: 8.5pt;">RankAutonomous uses native WordPress Application Passwords for secure, zero-plugin publishing:</p>
+      <ol style="font-size: 8.5pt; margin-left: 18px;">
+        <li>Log into your WordPress Admin dashboard (<code>/wp-admin</code>).</li>
+        <li>Go to <strong>Users &rarr; Profile</strong>. Scroll down to the <strong>Application Passwords</strong> section.</li>
+        <li>Enter <code>RankAutonomous</code> as the new application password name and click <strong>Add New Application Password</strong>.</li>
+        <li>Copy the generated 24-character password.</li>
+        <li>In RankAutonomous (<code>/app/integrations</code>), click <strong>Add CMS Connection</strong> &rarr; Select <strong>WordPress</strong>.</li>
+        <li>Enter your WordPress Site URL, your WordPress Admin username, and the Application Password.</li>
+        <li>Click <strong>Test Connection</strong>. When the green checkmark appears, click <strong>Save Connection</strong>.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-title">Webflow Setup</div>
+      </div>
+      <ol style="font-size: 8.5pt; margin-left: 18px;">
+        <li>Go to Webflow Dashboard &rarr; Project Settings &rarr; Integrations &rarr; <strong>Generate API Token</strong>.</li>
+        <li>In RankAutonomous, paste your API Token, Site ID, and target Collection ID (e.g., Blog Posts).</li>
+        <li>Click <strong>Test &amp; Save</strong>. Articles will now publish directly into your Webflow CMS Collection!</li>
+      </ol>
+    </div>
+
+    <h2>Connecting Google Search Console &amp; Google Analytics 4</h2>
+    <p style="font-size: 9pt;">
+      In <code>/app/integrations</code>, click <strong>Connect Google Search Console</strong>:
+    </p>
+    <ul style="font-size: 8.5pt;">
+      <li>Authenticates securely via Google OAuth 2.0.</li>
+      <li>Pulls verified organic impressions, clicks, average CTR, and ranking positions directly into <code>/app/performance</code>.</li>
+      <li>Eliminates reliance on third-party rank estimation scrapers.</li>
+    </ul>
+
+    <div class="callout tip">
+      <div class="callout-title">Enterprise Security &amp; Credential Encryption</div>
+      All CMS passwords and API tokens are encrypted at rest using AES-256-GCM before storage in the database. Raw tokens are never logged or exposed in client-side bundles.
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 7: MONITORING, COMPETITORS & REPORTING -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 7 &bull; Growth &amp; Analytics</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>7. Continuous Growth, Competitors &amp; Reporting</h1>
+    <p>
+      SEO is a compounding game. RankAutonomous provides ongoing operational tools to keep your rankings rising week after week.
+    </p>
+
+    <h2>Action Plan Checklist (<code>/app/recommendations</code>)</h2>
+    <p style="font-size: 9pt;">
+      The Action Plan transforms audit telemetry into an actionable prioritized kanban-style checklist:
+    </p>
+    <ul style="font-size: 8.5pt;">
+      <li><strong>Prioritization:</strong> Filter by <em>Critical</em> (immediate blocker), <em>High Impact</em>, or <em>Quick Wins</em> (low effort, fast ranking boost).</li>
+      <li><strong>Step-by-Step Fix Guide:</strong> Each recommendation includes clear technical instructions (e.g. how to fix canonical tags, add missing alt text, or redirect 404s).</li>
+      <li><strong>Status Tracking:</strong> Mark tasks as <em>In Progress</em> or <em>Resolved</em>. The next crawler run will verify resolution automatically!</li>
+    </ul>
+
+    <h2>Competitor Intelligence (<code>/app/competitors</code>)</h2>
+    <p style="font-size: 9pt;">
+      Monitor your rivals' organic movements:
+    </p>
+    <ul style="font-size: 8.5pt;">
+      <li><strong>Domain Authority Tracking:</strong> Compare your domain health score and indexation breadth against your top 5 competitors.</li>
+      <li><strong>Content Gap Discovery:</strong> Identify high-ranking topics your competitors have published that you haven't covered yet.</li>
+    </ul>
+
+    <h2>Ethical Backlink Opportunities (<code>/app/backlinks</code>)</h2>
+    <p style="font-size: 9pt;">
+      Strictly compliant with Google Search Essentials. RankAutonomous rejects automated spam link schemes, PBNs, and paid link farms. Instead, it identifies:
+    </p>
+    <ul style="font-size: 8.5pt;">
+      <li><strong>Digital PR &amp; Unlinked Mentions:</strong> High-authority publications mentioning your brand without an active hyperlink.</li>
+      <li><strong>Authoritative Niche Directories:</strong> Verified industry associations and legitimate partner resource pages.</li>
+      <li><strong>Linkable Asset Ideas:</strong> Infographics, original benchmarks, and data studies tailored to attract organic editorial citations.</li>
+    </ul>
+
+    <h2>Executive Monthly Reports (<code>/app/reports</code>)</h2>
+    <p style="font-size: 9pt;">
+      Generate beautiful, presentation-ready monthly SEO summaries for founders, clients, or board members:
+    </p>
+    <ul style="font-size: 8.5pt;">
+      <li>Summary of articles published, words generated, and technical issues resolved.</li>
+      <li>Net health score improvement trajectory and organic impression trends.</li>
+      <li>One-click export to printable PDF.</li>
+    </ul>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 8: DAILY ROUTINE, PRO TIPS & SUPPORT -->
+  <!-- ========================================================================= -->
+  <div class="page">
+    <div class="page-header">
+      <span class="doc-tag">Chapter 8 &bull; Best Practices</span>
+      <span class="brand-tag">RankAutonomous Guide</span>
+    </div>
+
+    <h1>8. Best Practices, Rhythm &amp; AI Support</h1>
+
+    <h2>The Ideal Weekly SEO Rhythm</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Cadence</th>
+          <th>Recommended Workflow in RankAutonomous</th>
+          <th>Estimated Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Monday Morning</strong></td>
+          <td>Check <strong>Overview</strong> (<code>/app</code>). Review new technical issues and check Performance impressions graph.</td>
+          <td>5 minutes</td>
+        </tr>
+        <tr>
+          <td><strong>Wednesday</strong></td>
+          <td>Go to <strong>Keywords</strong> (<code>/app/keywords</code>). Generate 10 new keyword ideas. Add 2 high-opportunity terms to the Content Engine.</td>
+          <td>10 minutes</td>
+        </tr>
+        <tr>
+          <td><strong>Thursday</strong></td>
+          <td>Open <strong>Content Engine</strong> (<code>/app/content</code>). Generate 2 articles, review quality scores, and approve for scheduled release.</td>
+          <td>15 minutes</td>
+        </tr>
+        <tr>
+          <td><strong>End of Month</strong></td>
+          <td>Navigate to <strong>Reports</strong> (<code>/app/reports</code>). Export the Monthly Executive Summary to share with stakeholders.</td>
+          <td>5 minutes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Top 5 Pro Tips for Rapid Ranking Growth</h2>
+    <ol style="font-size: 8.5pt; margin-left: 20px;">
+      <li><strong>Prioritize Commercial &amp; Transactional Intent:</strong> Don't just write informational guides. Target buyers searching with high intent for faster demo requests and sales.</li>
+      <li><strong>Publish Consistently:</strong> Search engines reward domain freshness and topical authority. Publishing 2–3 high-quality articles per week establishes topical depth rapidly.</li>
+      <li><strong>Keep Internal Links Dense:</strong> When publishing new articles, ensure RankAutonomous links back to your core pricing and product landing pages.</li>
+      <li><strong>Fix Critical Audit Issues Promptly:</strong> A single 500 error or broken canonical tag on a key page can tank rankings overnight. Resolve Critical issues within 48 hours.</li>
+      <li><strong>Monitor Search Console Trends:</strong> Check <code>/app/performance</code> bi-weekly to identify pages climbing from position 15 to 8, then optimize their titles for higher CTR.</li>
+    </ol>
+
+    <h2>24/7 AI Support: "Ask RankAutonomous"</h2>
+    <p style="font-size: 9pt;">
+      Need immediate assistance while using the app? Click the floating <strong>"Ask RankAutonomous"</strong> support widget located at the bottom-right of every dashboard screen:
+    </p>
+    <ul style="font-size: 8.5pt;">
+      <li>Powered by real-time conversational AI.</li>
+      <li>Answers questions about SEO metrics, WordPress setup, error messages, and keyword strategy.</li>
+      <li>100% free with unlimited chat queries.</li>
+    </ul>
+
+    <div class="callout tip" style="margin-top: 20px;">
+      <div class="callout-title">Support &amp; Community Resources</div>
+      <div style="font-size: 8.5pt;">
+        &bull; <strong>Main Portal:</strong> <a href="https://www.rankautonomous.com" style="color:#4f46e5; text-decoration:none;">https://www.rankautonomous.com</a><br>
+        &bull; <strong>API Status &amp; Health:</strong> <a href="https://rankautonomous-api.onrender.com/health" style="color:#4f46e5; text-decoration:none;">https://rankautonomous-api.onrender.com/health</a><br>
+        &bull; <strong>Support Contact:</strong> support@rankautonomous.com
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
