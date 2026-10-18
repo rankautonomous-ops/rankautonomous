@@ -231,8 +231,9 @@ export default async function AppDashboardPage() {
                   href="/app/onboarding"
                   className={styles.secondaryButton}
                   style={{ fontSize: '13px', padding: '8px 14px' }}
+                  title="Add another website to your account"
                 >
-                  <Plus size={13} /> Connect Domain
+                  <Plus size={13} /> Add Another Website
                 </Link>
               </div>
             </div>
