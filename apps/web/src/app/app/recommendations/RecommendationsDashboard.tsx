@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { 
   Sparkles, 
   RefreshCw, 
@@ -14,6 +15,7 @@ import {
   XCircle,
   TrendingUp,
   FileCode,
+  FileText,
   Tag,
   Filter
 } from 'lucide-react';
@@ -478,20 +480,42 @@ export default function RecommendationsDashboard({ initialWebsite }: { initialWe
                     )}
 
                     {rec.status === 'IN_PROGRESS' && (
-                      <span style={{ 
-                        fontSize: '12px', 
-                        padding: '6px 12px', 
-                        backgroundColor: '#eff6ff', 
-                        color: '#2563eb', 
-                        borderRadius: '6px', 
-                        fontWeight: 600,
-                        border: '1px solid #bfdbfe',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <Clock size={13} /> In Progress
-                      </span>
+                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ 
+                          fontSize: '12px', 
+                          padding: '6px 12px', 
+                          backgroundColor: '#eff6ff', 
+                          color: '#2563eb', 
+                          borderRadius: '6px', 
+                          fontWeight: 600,
+                          border: '1px solid #bfdbfe',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <Clock size={13} /> In Progress
+                        </span>
+
+                        {rec.type === 'CREATE_ARTICLE' && (
+                          <Link
+                            href="/app/content"
+                            style={{
+                              fontSize: '12px',
+                              padding: '6px 12px',
+                              backgroundColor: '#111111',
+                              color: '#ffffff',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            <FileText size={13} /> View in Content Engine <ArrowRight size={12} />
+                          </Link>
+                        )}
+                      </div>
                     )}
 
                     {rec.status !== 'COMPLETED' && (

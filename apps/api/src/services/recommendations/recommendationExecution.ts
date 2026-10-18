@@ -23,7 +23,7 @@ export async function executeRecommendation(recommendationId: string, websiteId:
     case 'CREATE_ARTICLE':
       // Automation: Create an Article draft
       if (rec.targetKeyword) {
-        await prisma.article.create({
+        const article = await prisma.article.create({
           data: {
             websiteId,
             title: `Draft: ${rec.targetKeyword}`,
@@ -33,7 +33,18 @@ export async function executeRecommendation(recommendationId: string, websiteId:
             content: '',
           }
         });
-        executed = true;
+        await prisma.seoRecommendation.update({
+          where: { id: rec.id },
+          data: {
+            status: 'IN_PROGRESS',
+            suggestedAction: `Draft article "${article.title}" created in Content Engine. Head to Content Engine to generate AI content, review outline, and publish.`,
+            metadata: {
+              ...(typeof rec.metadata === 'object' && rec.metadata !== null ? (rec.metadata as any) : {}),
+              articleId: article.id
+            }
+          }
+        });
+        return { success: true, message: 'Draft article created in Content Engine', data: { articleId: article.id } };
       }
       break;
       
