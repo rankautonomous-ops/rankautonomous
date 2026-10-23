@@ -107,6 +107,7 @@ const mockDnsMap: Record<string, string> = {
   'wp-500.com': '93.184.216.34',
   'wp-sub.com': '93.184.216.34',
   'wp-user-404.com': '93.184.216.34',
+  'wp-user-404-bad-auth.com': '93.184.216.34',
   'wp-invalid-id.com': '93.184.216.34',
   'wp-no-route.com': '93.184.216.34',
 };
@@ -150,7 +151,7 @@ function setupMockFetch() {
           headers: { 'Content-Type': 'text/html' },
         });
       }
-      if (urlStr.includes('wp-user-404.com')) {
+      if (urlStr.includes('wp-user-404.com') || urlStr.includes('wp-user-404-bad-auth.com')) {
         return new Response(JSON.stringify({ code: 'rest_no_route', message: 'No route was found matching the URL and request method.' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json' },
@@ -196,6 +197,18 @@ function setupMockFetch() {
         return new Response('<html>404 Not Found</html>', {
           status: 404,
           headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      if (urlStr.includes('wp-user-404-bad-auth.com')) {
+        if (urlStr.includes('context=edit')) {
+          return new Response(JSON.stringify({ code: 'rest_forbidden_context', message: 'Sorry, you are not allowed to edit posts.' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify([{ id: 1, title: { rendered: 'Public Post' } }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
         });
       }
       if (urlStr.includes('wp-user-404.com')) {
@@ -843,36 +856,46 @@ async function runWordPressTests() {
     }
 
     // -------------------------------------------------------------------------
-    // TEST 27: Public posts endpoint diagnostic detects when public REST works but /users/me fails with 404
+    // TEST 27: Fallback to /posts?context=edit succeeds when /users/me is restricted (404), and diagnoses auth failures
     // -------------------------------------------------------------------------
     {
-      const client = new WordPressClient('https://wp-user-404.com', {
+      // 1. Valid credentials on site where /users/me is 404 (e.g. user enumeration protection)
+      const clientFallback = new WordPressClient('https://wp-user-404.com', {
         username: 'admin',
         applicationPassword: 'app-pass-1234',
       });
+      const fallbackResult = await clientFallback.testConnection();
+      assert.strictEqual(fallbackResult.success, true, 'Test 27: Fallback to /posts?context=edit must succeed');
+      assert.strictEqual(fallbackResult.canPublish, true, 'Test 27: canPublish must be true');
 
-      const publicCheck = await client.checkPublicEndpoint();
+      // 2. Bad credentials on site where /users/me is 404
+      const clientBadAuth = new WordPressClient('https://wp-user-404-bad-auth.com', {
+        username: 'admin',
+        applicationPassword: 'wrong-pass',
+      });
+
+      const publicCheck = await clientBadAuth.checkPublicEndpoint();
       assert.strictEqual(publicCheck.reachable, true, 'Test 27: Public endpoint must be reachable');
       assert.strictEqual(publicCheck.status, 200, 'Test 27: Public endpoint status must be 200');
 
       let errorCaught: any = null;
       try {
-        await client.testConnection();
+        await clientBadAuth.testConnection();
       } catch (err: any) {
         errorCaught = err;
       }
 
-      assert(errorCaught, 'Test 27: testConnection must throw when /users/me is 404');
+      assert(errorCaught, 'Test 27: testConnection must throw when auth fails');
       assert.strictEqual(errorCaught.statusCode, 401, 'Test 27: Must report as 401 when public endpoint is reachable');
       assert(
-        errorCaught.message.includes('The public WordPress REST API is reachable at https://wp-user-404.com/wp-json/wp/v2/posts'),
+        errorCaught.message.includes('The public WordPress REST API is reachable at https://wp-user-404-bad-auth.com/wp-json/wp/v2/posts'),
         'Test 27: Message must acknowledge public REST is reachable'
       );
       assert(
         !errorCaught.message.includes('Ensure WordPress permalinks are configured'),
         'Test 27: Must NOT suggest permalink configuration when public REST is online'
       );
-      console.log('PASS: Test 27: Public posts endpoint diagnostic detects when public REST works but /users/me fails with 404');
+      console.log('PASS: Test 27: Fallback to /posts?context=edit succeeds when /users/me is restricted (404), and diagnoses auth failures');
     }
 
     // -------------------------------------------------------------------------
