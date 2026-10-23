@@ -4,7 +4,7 @@ import prisma from '../lib/database';
 import websiteRouter from '../routes/website';
 import { AuthenticatedUser } from '../types/auth';
 import { isEncryptedEnvelope, decryptJson } from '../lib/encryption';
-import { normalizeWordPressUrl } from '../services/wordpress/client';
+import { normalizeWordPressUrl, WordPressClient, WordPressApiError } from '../services/wordpress/client';
 
 /**
  * Mock context dispatcher for website router
@@ -105,6 +105,10 @@ const mockDnsMap: Record<string, string> = {
   'no-rest.com': '93.184.216.34',
   'wp-timeout.com': '93.184.216.34',
   'wp-500.com': '93.184.216.34',
+  'wp-sub.com': '93.184.216.34',
+  'wp-user-404.com': '93.184.216.34',
+  'wp-invalid-id.com': '93.184.216.34',
+  'wp-no-route.com': '93.184.216.34',
 };
 
 function setupMockFetch() {
@@ -146,6 +150,18 @@ function setupMockFetch() {
           headers: { 'Content-Type': 'text/html' },
         });
       }
+      if (urlStr.includes('wp-user-404.com')) {
+        return new Response(JSON.stringify({ code: 'rest_no_route', message: 'No route was found matching the URL and request method.' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (urlStr.includes('wp-invalid-id.com')) {
+        return new Response(JSON.stringify({ code: 'rest_user_invalid_id', message: 'Invalid user ID.' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       if (urlStr.includes('wp-timeout.com')) {
         const error: any = new Error('The operation was aborted due to timeout');
         error.name = 'AbortError';
@@ -176,6 +192,18 @@ function setupMockFetch() {
 
     // 2. Posts endpoint
     if (urlStr.includes('/wp-json/wp/v2/posts')) {
+      if (urlStr.includes('no-rest.com')) {
+        return new Response('<html>404 Not Found</html>', {
+          status: 404,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      if (urlStr.includes('wp-user-404.com')) {
+        return new Response(JSON.stringify([{ id: 1, title: { rendered: 'Public Post' } }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       if (urlStr.includes('wp-500.com')) {
         return new Response(JSON.stringify({ message: 'WordPress database error' }), {
           status: 500,
@@ -242,6 +270,25 @@ function setupMockFetch() {
           }),
           {
             status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // GET /wp-json/wp/v2/posts (Public endpoint or post retrieval)
+      if (method === 'GET') {
+        return new Response(
+          JSON.stringify([
+            {
+              id: 808,
+              date: new Date().toISOString(),
+              slug: 'sample-post',
+              status: 'publish',
+              title: { rendered: 'Sample Post' },
+            },
+          ]),
+          {
+            status: 200,
             headers: { 'Content-Type': 'application/json' },
           }
         );
@@ -769,8 +816,174 @@ async function runWordPressTests() {
       console.log('PASS: Test 25: Trashing published post calls WordPress delete and updates cmsPublicationInfo status to trash');
     }
 
+    // -------------------------------------------------------------------------
+    // TEST 26: URL normalization handles subdirectories, admin/login paths, REST endpoints, and trailing slashes
+    // -------------------------------------------------------------------------
+    {
+      assert.strictEqual(normalizeWordPressUrl('my-wp-blog.com'), 'https://my-wp-blog.com');
+      assert.strictEqual(normalizeWordPressUrl('https://my-wp-blog.com/'), 'https://my-wp-blog.com');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/wp-admin'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/wp-admin/'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/wp-admin/options-general.php'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/wp-login.php'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/wp-json/wp/v2/posts'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm/wp-json'), 'https://eu2.wpsandbox.org/site/s-qc67l6cbnbwdm');
+      assert.strictEqual(normalizeWordPressUrl('https://example.com/blog/wp-admin/plugins.php'), 'https://example.com/blog');
+
+      let threw = false;
+      try {
+        normalizeWordPressUrl('');
+      } catch (err: any) {
+        threw = true;
+      }
+      assert(threw, 'Test 26: Empty URL should throw');
+      console.log('PASS: Test 26: URL normalization handles subdirectories, admin/login paths, REST endpoints, and trailing slashes');
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 27: Public posts endpoint diagnostic detects when public REST works but /users/me fails with 404
+    // -------------------------------------------------------------------------
+    {
+      const client = new WordPressClient('https://wp-user-404.com', {
+        username: 'admin',
+        applicationPassword: 'app-pass-1234',
+      });
+
+      const publicCheck = await client.checkPublicEndpoint();
+      assert.strictEqual(publicCheck.reachable, true, 'Test 27: Public endpoint must be reachable');
+      assert.strictEqual(publicCheck.status, 200, 'Test 27: Public endpoint status must be 200');
+
+      let errorCaught: any = null;
+      try {
+        await client.testConnection();
+      } catch (err: any) {
+        errorCaught = err;
+      }
+
+      assert(errorCaught, 'Test 27: testConnection must throw when /users/me is 404');
+      assert.strictEqual(errorCaught.statusCode, 401, 'Test 27: Must report as 401 when public endpoint is reachable');
+      assert(
+        errorCaught.message.includes('The public WordPress REST API is reachable at https://wp-user-404.com/wp-json/wp/v2/posts'),
+        'Test 27: Message must acknowledge public REST is reachable'
+      );
+      assert(
+        !errorCaught.message.includes('Ensure WordPress permalinks are configured'),
+        'Test 27: Must NOT suggest permalink configuration when public REST is online'
+      );
+      console.log('PASS: Test 27: Public posts endpoint diagnostic detects when public REST works but /users/me fails with 404');
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 28: Connection test when REST API is truly absent (HTML 404 on both /users/me and /posts)
+    // -------------------------------------------------------------------------
+    {
+      const client = new WordPressClient('https://no-rest.com', {
+        username: 'admin',
+        applicationPassword: 'app-pass-1234',
+      });
+
+      const publicCheck = await client.checkPublicEndpoint();
+      assert.strictEqual(publicCheck.reachable, false, 'Test 28: Public endpoint must not be reachable');
+
+      let errorCaught: any = null;
+      try {
+        await client.testConnection();
+      } catch (err: any) {
+        errorCaught = err;
+      }
+
+      assert(errorCaught, 'Test 28: testConnection must throw 404');
+      assert.strictEqual(errorCaught.statusCode, 404);
+      assert(
+        errorCaught.message.includes('Ensure WordPress permalinks are configured'),
+        'Test 28: Must advise checking permalinks when endpoint is truly absent'
+      );
+      console.log('PASS: Test 28: Connection test when REST API is truly absent (HTML 404 on both /users/me and /posts)');
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 29: REST endpoint returning JSON 404 with rest_user_invalid_id classifies as authentication failure
+    // -------------------------------------------------------------------------
+    {
+      const client = new WordPressClient('https://wp-invalid-id.com', {
+        username: 'admin',
+        applicationPassword: 'app-pass-1234',
+      });
+
+      let errorCaught: any = null;
+      try {
+        await client.testConnection();
+      } catch (err: any) {
+        errorCaught = err;
+      }
+
+      assert(errorCaught, 'Test 29: Must catch error');
+      assert.strictEqual(errorCaught.statusCode, 401, 'Test 29: rest_user_invalid_id must map to 401');
+      assert.strictEqual(errorCaught.wpCode, 'rest_user_invalid_id');
+      assert(
+        errorCaught.message.includes('Unable to authenticate user ID "me"'),
+        'Test 29: Must report user resolution failure'
+      );
+      console.log('PASS: Test 29: REST endpoint returning JSON 404 with rest_user_invalid_id classifies as authentication failure');
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 30: WordPress in a subdirectory connects, tests, and publishes articles correctly
+    // -------------------------------------------------------------------------
+    {
+      // Create integration on site A with subdirectory siteUrl including /wp-admin (which gets normalized)
+      const ctx = await dispatch('POST', `/${siteA.id}/integrations/wordpress`, authUserA, {
+        siteUrl: 'https://wp-sub.com/site/my-blog/wp-admin',
+        username: 'admin',
+        applicationPassword: 'valid-sub-password',
+      });
+      assert.strictEqual(ctx.getStatus(), 200, 'Test 30: Connect to subdirectory must return 200');
+      const data = ctx.getData();
+      assert.strictEqual(data.integration?.config?.siteUrl, 'https://wp-sub.com/site/my-blog');
+
+      // Publish an article to subdirectory WordPress site
+      const subArticle = await prisma.article.create({
+        data: {
+          websiteId: siteA.id,
+          title: 'Subdirectory Article',
+          content: '<p>Content in subdirectory blog</p>',
+          status: 'APPROVED',
+        },
+      });
+
+      const pubCtx = await dispatch('POST', `/${siteA.id}/articles/${subArticle.id}/publish`, authUserA);
+      assert.strictEqual(pubCtx.getStatus(), 200, 'Test 30: Publish to subdirectory site must return 200');
+      const pubData = pubCtx.getData();
+      assert.strictEqual(pubData.publicationInfo?.siteUrl, 'https://wp-sub.com/site/my-blog');
+      console.log('PASS: Test 30: WordPress in a subdirectory connects, tests, and publishes articles correctly');
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 31: checkPublicEndpoint() directly inspects public posts endpoint reachability
+    // -------------------------------------------------------------------------
+    {
+      const clientGood = new WordPressClient('https://my-wp-blog.com', {
+        username: 'admin',
+        applicationPassword: 'pass',
+      });
+      const checkGood = await clientGood.checkPublicEndpoint();
+      assert.strictEqual(checkGood.reachable, true, 'Test 31: my-wp-blog.com posts must be reachable');
+      assert.strictEqual(checkGood.status, 200);
+
+      const clientBad = new WordPressClient('https://no-rest.com', {
+        username: 'admin',
+        applicationPassword: 'pass',
+      });
+      const checkBad = await clientBad.checkPublicEndpoint();
+      assert.strictEqual(checkBad.reachable, false, 'Test 31: no-rest.com posts must not be reachable');
+      assert.strictEqual(checkBad.status, 404);
+      console.log('PASS: Test 31: checkPublicEndpoint() directly inspects public posts endpoint reachability');
+    }
+
     console.log('\n==================================================');
-    console.log('SUMMARY: All 25 WordPress Integration & Publishing Tests Passed!');
+    console.log('SUMMARY: All 31 WordPress Integration & Publishing Tests Passed!');
     console.log('==================================================\n');
   } finally {
     restoreFetch();
