@@ -40,7 +40,7 @@ async function main() {
     const ssrfRes = await request(app)
       .post('/api/public/free-analysis')
       .send({ url: 'http://127.0.0.1:4000' });
-    if (ssrfRes.status !== 400 || !ssrfRes.body.message.includes('Failed to crawl')) {
+    if (ssrfRes.status !== 400 || (!ssrfRes.body.message.includes('SSRF') && !ssrfRes.body.message.includes('Failed to crawl'))) {
       throw new Error(`SSRF not blocked correctly: ${ssrfRes.status} ${JSON.stringify(ssrfRes.body)}`);
     }
     console.log('✅ SSRF correctly blocked');

@@ -10,7 +10,8 @@ const MAX_REQUESTS = 3; // 3 requests per 15 mins
 
 router.post('/free-analysis', async (req, res) => {
   try {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+    const ip = forwarded || req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
 
     // Rate Limiting Logic

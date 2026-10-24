@@ -349,8 +349,8 @@ function BillingContent() {
                 <span className={styles.infoLabel}>Pricing Rate</span>
                 <span className={styles.infoValue}>
                   {subscription.interval === 'year' || subscription.plan === 'annual'
-                    ? '$99 / month (billed $1,188 annually)'
-                    : '$149 / month'}
+                    ? PRICING_CONFIG.annual.display
+                    : PRICING_CONFIG.monthly.display}
                 </span>
               </div>
 
@@ -518,7 +518,7 @@ function BillingContent() {
                   disabled={actionLoading}
                   className={styles.secondaryButton}
                 >
-                  {actionLoading ? 'Connecting...' : 'Subscribe Monthly ($149/mo)'}
+                  {actionLoading ? 'Connecting...' : PRICING_CONFIG.monthly.buttonLabel}
                 </button>
                 <button
                   type="button"
@@ -526,7 +526,7 @@ function BillingContent() {
                   disabled={actionLoading}
                   className={styles.primaryButton}
                 >
-                  {actionLoading ? 'Connecting...' : 'Subscribe Annually ($1,188/yr)'}
+                  {actionLoading ? 'Connecting...' : PRICING_CONFIG.annual.buttonLabel}
                 </button>
               </div>
             </div>
@@ -593,7 +593,7 @@ function BillingContent() {
                     letterSpacing: '-0.03em',
                   }}
                 >
-                  $149<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month</span>
+                  {PRICING_CONFIG.monthly.formattedPrice}<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> {PRICING_CONFIG.monthly.formattedPeriod}</span>
                 </div>
                 <p
                   style={{
@@ -603,7 +603,7 @@ function BillingContent() {
                     lineHeight: '1.5',
                   }}
                 >
-                  Complete autonomous SEO engine billed month-to-month. Cancel anytime with zero lock-in.
+                  {PRICING_CONFIG.monthly.description}
                 </p>
                 <ul
                   style={{
@@ -636,7 +636,7 @@ function BillingContent() {
                 className={styles.secondaryButton}
                 style={{ width: '100%', height: '48px' }}
               >
-                {actionLoading ? 'Connecting...' : 'Subscribe Monthly ($149/mo)'}
+                {actionLoading ? 'Connecting...' : PRICING_CONFIG.monthly.buttonLabel}
               </button>
             </div>
 
@@ -666,7 +666,7 @@ function BillingContent() {
                   letterSpacing: '0.05em',
                 }}
               >
-                SAVE $600 / YEAR
+                {PRICING_CONFIG.savings.badgeTextUpper}
               </div>
 
               <div>
@@ -682,7 +682,7 @@ function BillingContent() {
                     letterSpacing: '-0.03em',
                   }}
                 >
-                  $99<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month eq.</span>
+                  {PRICING_CONFIG.annual.formattedMonthlyEquivalent}<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 500 }}> / month eq.</span>
                 </div>
                 <p
                   style={{
@@ -692,7 +692,7 @@ function BillingContent() {
                     lineHeight: '1.5',
                   }}
                 >
-                  $99/month billed annually at $1,188/year. Best value for compounding domain growth.
+                  {PRICING_CONFIG.annual.description}
                 </p>
                 <ul
                   style={{
@@ -710,7 +710,7 @@ function BillingContent() {
                     <Check size={16} color="var(--success)" /> Complete RankAutonomous access
                   </li>
                   <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <Check size={16} color="var(--success)" /> Save $600/year compared to monthly
+                    <Check size={16} color="var(--success)" /> {PRICING_CONFIG.savings.descriptionText}
                   </li>
                   <li style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <Check size={16} color="var(--success)" /> Priority crawl &amp; AI generation
@@ -725,7 +725,7 @@ function BillingContent() {
                 className={styles.primaryButton}
                 style={{ width: '100%', height: '48px' }}
               >
-                {actionLoading ? 'Connecting...' : 'Subscribe Annually ($1,188/yr)'}
+                {actionLoading ? 'Connecting...' : PRICING_CONFIG.annual.buttonLabel}
               </button>
             </div>
           </div>

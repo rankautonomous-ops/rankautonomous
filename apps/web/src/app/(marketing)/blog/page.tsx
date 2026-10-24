@@ -59,10 +59,7 @@ export default function BlogListingPage() {
               </div>
 
               <div className={blogStyles.cardFooter}>
-                <div className={blogStyles.authorInfo}>
-                  <span className={blogStyles.authorName}>{post.author.name}</span>
-                  <span className={blogStyles.publishDate}>{formattedDate}</span>
-                </div>
+                <span className={blogStyles.publishDate}>{formattedDate}</span>
                 <span className={blogStyles.readLink}>
                   Read <ArrowRight size={14} />
                 </span>

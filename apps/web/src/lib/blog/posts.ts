@@ -4,7 +4,7 @@ export interface BlogPost {
   excerpt: string;
   content: string;
   category: 'AI Search & GEO' | 'Technical SEO' | 'Growth Strategy' | 'Product Guides';
-  author: {
+  author?: {
     name: string;
     role: string;
     avatar?: string;
@@ -21,8 +21,8 @@ export const BLOG_POSTS: BlogPost[] = [
     excerpt: 'Traditional SEO targets blue links. GEO optimizes for citation in ChatGPT, Perplexity, Claude, and Google AI Overviews. Here is how modern discovery works and how to rank.',
     category: 'AI Search & GEO',
     author: {
-      name: 'Santhosh Madhan',
-      role: 'Founder & CEO, RankAutonomous',
+      name: 'RankAutonomous Team',
+      role: 'Editorial Team',
     },
     publishedAt: '2026-03-15T09:00:00Z',
     readTime: '6 min read',
@@ -68,8 +68,8 @@ The transition to AI search isn't the death of organic growth—it is the bigges
     excerpt: 'Manual SEO agencies charge $3,000 to $10,000 monthly for slow, spreadsheet-driven deliverables. Learn how continuous autonomous platforms deliver 10x the output at a fraction of the cost.',
     category: 'Growth Strategy',
     author: {
-      name: 'Alex Rivera',
-      role: 'Head of Growth, RankAutonomous',
+      name: 'RankAutonomous Team',
+      role: 'Editorial Team',
     },
     publishedAt: '2026-03-22T11:30:00Z',
     readTime: '5 min read',
@@ -101,7 +101,7 @@ Autonomous SEO is an automated, continuous feedback loop where software:
 
 | Feature | Traditional SEO Agency | RankAutonomous Platform |
 | :--- | :--- | :--- |
-| **Monthly Cost** | $3,500 – $10,000/mo | From $99/mo |
+| **Monthly Cost** | $3,500 – $10,000/mo | $149/mo (or $99/mo billed annually) |
 | **Publishing Velocity** | 2–4 articles/month | Up to 30 articles/month |
 | **Audit Frequency** | Ad-hoc or quarterly | Continuous 24/7 background audits |
 | **Time to Live** | Weeks of email back-and-forth | 1-click CMS push to WordPress/Webflow |
@@ -120,8 +120,8 @@ Autonomous doesn't mean uncontrolled. With RankAutonomous, every article undergo
     excerpt: 'Debunking the myth that AI-assisted content cannot rank. Understand Google’s helpful content framework and how to ensure your articles index and rank reliably.',
     category: 'Technical SEO',
     author: {
-      name: 'Elena Rostova',
-      role: 'Lead Search Scientist, RankAutonomous',
+      name: 'RankAutonomous Team',
+      role: 'Editorial Team',
     },
     publishedAt: '2026-03-29T14:15:00Z',
     readTime: '7 min read',
@@ -158,8 +158,8 @@ The best content in the world cannot rank if search bots struggle with render pe
     excerpt: 'Internal links distribute PageRank, establish topical clusters, and guide Googlebot through your site architecture. Here is how to automate internal linking safely.',
     category: 'Technical SEO',
     author: {
-      name: 'Santhosh Madhan',
-      role: 'Founder & CEO, RankAutonomous',
+      name: 'RankAutonomous Team',
+      role: 'Editorial Team',
     },
     publishedAt: '2026-04-05T08:00:00Z',
     readTime: '5 min read',

@@ -93,11 +93,7 @@ export class OpenRouterProvider implements IAiProvider {
     switch (task) {
       case 'chat': {
         const primary = (process.env.OPENROUTER_MODEL_CHAT || 'openrouter/free').trim();
-        const fallbacks =
-          explicitFallbacks ||
-          ['openrouter/free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'].filter(
-            (m) => m !== primary
-          );
+        const fallbacks = explicitFallbacks || [];
         return { primary, fallbacks };
       }
       case 'keywords': {
@@ -253,9 +249,13 @@ export class OpenRouterProvider implements IAiProvider {
       const data: any = await response.json();
       let content = data?.choices?.[0]?.message?.content;
 
-      // Some reasoning-focused free models emit reasoning text in reasoning / reasoning_details
-      if ((typeof content !== 'string' || !content.trim()) && data?.choices?.[0]?.message?.reasoning) {
-        content = data.choices[0].message.reasoning;
+      // Some reasoning-focused free models emit text in reasoning or reasoning_details
+      if (typeof content !== 'string' || !content.trim()) {
+        if (typeof data?.choices?.[0]?.message?.reasoning === 'string' && data.choices[0].message.reasoning.trim()) {
+          content = data.choices[0].message.reasoning;
+        } else if (Array.isArray(data?.choices?.[0]?.message?.reasoning_details)) {
+          content = data.choices[0].message.reasoning_details.map((d: any) => d.text || '').join('\n').trim();
+        }
       }
 
       if (typeof content !== 'string' || !content.trim()) {

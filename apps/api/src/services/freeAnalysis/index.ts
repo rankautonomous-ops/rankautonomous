@@ -1,144 +1,169 @@
 import { normalizeUrl } from '../../lib/urlNormalizer';
-import { ssrfSafeFetch } from '../../lib/urlSafety';
-import * as cheerio from 'cheerio';
-import { runTechnicalChecks } from '../seoAudit/technicalChecks';
-import { runOnPageChecks } from '../seoAudit/onPageChecks';
-import { runContentChecks } from '../seoAudit/contentChecks';
-import { runPerformanceChecks } from '../seoAudit/performanceChecks';
-import { calculateOverallScore } from '../seoAudit/scoring';
-import { AuditContext, SeoCheckResult } from '../seoAudit/types';
+import { fetchWebsiteAnalysis, checkRobotsTxtSafely } from './httpFetcher';
+import { runAllWebsiteChecks } from './checks';
+import { calculateWebsiteOverallScore } from './scoring';
+import {
+  WebsiteAnalysisResult,
+  AnalysisFinding,
+  AnalysisCategory
+} from './types';
 
-export async function runFreeAnalysis(targetUrl: string) {
+export * from './types';
+export * from './httpFetcher';
+export * from './checks';
+export * from './scoring';
+
+/**
+ * Deduplicates findings that share the same ID or title
+ */
+function deduplicateFindings(findings: AnalysisFinding[]): AnalysisFinding[] {
+  const seen = new Set<string>();
+  const unique: AnalysisFinding[] = [];
+
+  for (const f of findings) {
+    const key = `${f.category}:${f.title}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(f);
+    }
+  }
+
+  return unique;
+}
+
+export async function runFreeAnalysis(targetUrl: string): Promise<WebsiteAnalysisResult> {
   const normalized = normalizeUrl(targetUrl);
   if (!normalized) {
     throw new Error('Invalid URL provided.');
   }
 
-  // 1. Fetch the page securely
-  let statusCode: number | null = null;
-  let html = '';
-  let htmlSize = 0;
-  
-  try {
-    const res = await ssrfSafeFetch(normalized, 3, 10000); // Max 3 redirects, 10s timeout
-    statusCode = res.status;
+  // 1. Fetch website safely with monotonic timings, SSL inspection & SSRF controls
+  const httpResponse = await fetchWebsiteAnalysis(normalized);
 
-    if (!res.ok) {
-      throw new Error(`HTTP Error ${res.status}`);
-    }
+  // 2. Safely check robots.txt availability
+  const robotsTxt = await checkRobotsTxtSafely(httpResponse.finalUrl);
 
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('text/html')) {
-      throw new Error('The target URL is not an HTML page.');
-    }
-    
-    html = await res.text();
-    htmlSize = Buffer.byteLength(html, 'utf8');
-
-    // Max 3MB for free analysis
-    if (htmlSize > 3 * 1024 * 1024) {
-      throw new Error('Page is too large to analyze.');
-    }
-  } catch (err: any) {
-    throw new Error(`Failed to crawl website: ${err.message || 'Unknown error'}`);
-  }
-
-  // 2. Parse content
-  const $ = cheerio.load(html);
-  const title = $('title').text().trim() || null;
-  const description = $('meta[name="description"]').attr('content')?.trim() || null;
-  const h1 = $('h1').first().text().trim() || null;
-  
-  let canonicalUrl = $('link[rel="canonical"]').attr('href')?.trim() || null;
-  if (canonicalUrl) {
-    canonicalUrl = normalizeUrl(canonicalUrl, normalized) || canonicalUrl;
-  }
-
-  const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
-  const wordCount = bodyText ? bodyText.split(' ').length : 0;
-
-  const internalLinks: string[] = [];
-  const externalLinks: string[] = [];
-  const parsedStart = new URL(normalized);
-
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href');
-    if (href) {
-      try {
-        if (href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-        const cleanLink = normalizeUrl(href, normalized);
-        if (!cleanLink) return;
-        
-        const linkUrl = new URL(cleanLink);
-        if (linkUrl.hostname === parsedStart.hostname) {
-          if (!internalLinks.includes(cleanLink)) {
-            internalLinks.push(cleanLink);
-          }
-        } else {
-          if (!externalLinks.includes(cleanLink)) {
-            externalLinks.push(cleanLink);
-          }
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
+  // 3. Run all evidence-based technical checks across 8 categories
+  const { categories, metadata } = runAllWebsiteChecks({
+    http: httpResponse,
+    robotsTxt
   });
 
-  // 3. Construct Mock PageResult and Context
-  const mockPage = {
-    id: 'mock-page',
-    crawlJobId: 'mock-job',
-    url: normalized,
-    normalizedUrl: normalized,
-    statusCode,
-    status: 'SUCCESS',
-    title,
-    description,
-    h1,
-    wordCount,
-    htmlSize,
-    internalLinks,
-    externalLinks,
-    error: null,
-    canonicalUrl,
-    depth: 0,
-    crawledAt: new Date()
+  // 4. Calculate deterministic weighted overall score
+  const overallScore = calculateWebsiteOverallScore(categories);
+
+  // 5. Aggregate all findings
+  const allFindings = categories.flatMap(c => c.findings);
+  const priorityWeight: Record<string, number> = {
+    CRITICAL: 5,
+    HIGH: 4,
+    MEDIUM: 3,
+    LOW: 2,
+    INFO: 1
   };
 
-  const ctx: AuditContext = {
-    websiteId: 'mock-website',
-    crawlJobId: 'mock-job',
-    pages: [mockPage]
-  };
+  const sortedFindings = deduplicateFindings(allFindings).sort((a, b) => {
+    const pDiff = (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0);
+    if (pDiff !== 0) return pDiff;
+    return a.title.localeCompare(b.title);
+  });
 
-  // 4. Run Checks
-  const results: SeoCheckResult[] = [
-    runTechnicalChecks(ctx),
-    runOnPageChecks(ctx),
-    runContentChecks(ctx),
-    runPerformanceChecks(ctx)
+  // Top issues for quick summary consumption (top 6 issues)
+  const topIssues = sortedFindings.slice(0, 6);
+
+  // Summary counts
+  let totalChecks = 0;
+  let passedChecks = 0;
+  let failedChecks = 0;
+  let skippedChecks = 0;
+
+  const categoriesMap: Record<string, any> = {};
+
+  for (const cat of categories) {
+    totalChecks += cat.checksPerformed;
+    passedChecks += cat.checksPassed;
+    failedChecks += cat.checksFailed;
+    skippedChecks += cat.checksSkipped;
+
+    categoriesMap[cat.category] = {
+      score: cat.score,
+      checksPerformed: cat.checksPerformed,
+      checksPassed: cat.checksPassed,
+      checksFailed: cat.checksFailed,
+      checks: cat.checks
+    };
+  }
+
+  const categoryScores = categories.map(c => ({
+    category: c.category,
+    score: c.score,
+    checksPerformed: c.checksPerformed,
+    checksPassed: c.checksPassed,
+    checksFailed: c.checksFailed,
+    checksSkipped: c.checksSkipped
+  }));
+
+  const limitations = [
+    'HTTP timings represent server-side fetch latency approximations and do not substitute for real-user or lab Core Web Vitals (LCP, INP, CLS).',
+    'SSL/TLS validation evaluates certificate chain and validity periods; client-specific trust stores may vary.',
+    'HTML structure checks reflect the static initial response; client-side single-page apps (SPAs) may inject additional markup after hydration.',
+    'Search engine indexing is determined by complex proprietary ranking algorithms; HTML directives provide guidance but do not guarantee indexation.'
   ];
-
-  const overallScore = calculateOverallScore(results);
-  
-  const allIssues = results.flatMap(r => r.issues);
-  
-  // Sort issues by priority
-  const priorityWeight: Record<string, number> = { 'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-  allIssues.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
-  
-  // Limit to top 3 issues for the free report
-  const topIssues = allIssues.slice(0, 3);
 
   return {
     url: normalized,
+    finalUrl: httpResponse.finalUrl,
     overallScore,
-    categoryScores: results.map(r => ({
-      category: r.category,
-      score: r.score
-    })),
     pagesAnalyzed: 1,
-    topIssues
+    testedAt: new Date().toISOString(),
+    summary: {
+      totalChecks,
+      passedChecks,
+      failedChecks,
+      skippedChecks
+    },
+    timings: {
+      ttfbMs: httpResponse.timings.ttfbMs,
+      downloadMs: httpResponse.timings.downloadMs,
+      totalDurationMs: httpResponse.timings.totalMs,
+      notes: 'Monotonic server-side measurement. TTFB measures request dispatch to first byte of response headers.'
+    },
+    http: {
+      statusCode: httpResponse.statusCode,
+      statusMessage: httpResponse.statusText,
+      redirectCount: httpResponse.redirectCount,
+      redirectChain: httpResponse.redirectChain,
+      contentType: httpResponse.contentType,
+      contentEncoding: httpResponse.contentEncoding,
+      htmlSizeBytes: httpResponse.htmlSizeBytes
+    },
+    security: {
+      isHttps: httpResponse.isHttps,
+      tlsVersion: httpResponse.tls?.protocol || (httpResponse.isHttps ? 'TLS' : null),
+      certificate: httpResponse.tls
+        ? {
+            issuer: httpResponse.tls.issuer,
+            validFrom: httpResponse.tls.validFrom,
+            validTo: httpResponse.tls.validTo,
+            daysRemaining: httpResponse.tls.daysRemaining,
+            isValid: httpResponse.tls.authorized,
+            error: httpResponse.tls.authorizationError
+          }
+        : null,
+      headers: {
+        'strict-transport-security': httpResponse.headers['strict-transport-security'] || null,
+        'x-content-type-options': httpResponse.headers['x-content-type-options'] || null,
+        'content-security-policy': httpResponse.headers['content-security-policy'] || null,
+        'referrer-policy': httpResponse.headers['referrer-policy'] || null,
+        'permissions-policy': httpResponse.headers['permissions-policy'] || null,
+        'x-frame-options': httpResponse.headers['x-frame-options'] || null
+      }
+    },
+    categoryScores,
+    categories: categoriesMap as Record<AnalysisCategory, any>,
+    findings: sortedFindings,
+    topIssues,
+    metadata,
+    limitations
   };
 }

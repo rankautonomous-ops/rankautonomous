@@ -14,6 +14,21 @@
  * Annual savings = $600/year ($50/month equivalent savings)
  */
 
+const annualConfig = {
+  amountDollars: 1188,
+  amountCents: 118800,
+  monthlyEquivalentDollars: 99,
+  yearlyMonthlyEquivalent: 99,
+  interval: 'year' as const,
+  formattedMonthlyEquivalent: '$99',
+  formattedPrice: '$1,188',
+  billedNote: '(billed $1,188/year)',
+  billedAnnuallyText: 'billed $1,188 annually',
+  display: '$99/month billed annually at $1,188/year',
+  buttonLabel: 'Subscribe Annually ($1,188/yr)',
+  description: 'Billed annually at $1,188/year. Best value for compounding domain growth.',
+};
+
 export const PRICING_CONFIG = {
   monthly: {
     amountDollars: 149,
@@ -25,21 +40,11 @@ export const PRICING_CONFIG = {
     buttonLabel: 'Subscribe Monthly ($149/mo)',
     description: 'Flexible monthly subscription. Cancel anytime without lock-in.',
   },
-  annual: {
-    amountDollars: 1188,
-    amountCents: 118800,
-    monthlyEquivalentDollars: 99,
-    interval: 'year' as const,
-    formattedMonthlyEquivalent: '$99',
-    formattedPrice: '$1,188',
-    billedNote: '(billed $1,188/year)',
-    billedAnnuallyText: 'billed $1,188 annually',
-    display: '$99/month billed annually at $1,188/year',
-    buttonLabel: 'Subscribe Annually ($1,188/yr)',
-    description: 'Billed annually at $1,188/year. Best value for compounding domain growth.',
-  },
+  annual: annualConfig,
+  yearly: annualConfig,
   savings: {
     annualSavingsDollars: 600,
+    annualSavingsCents: 60000,
     monthlySavingsDollars: 50,
     badgeText: 'Save $600 / year',
     badgeTextUpper: 'SAVE $600 / YEAR',
@@ -48,3 +53,5 @@ export const PRICING_CONFIG = {
 } as const;
 
 export type PricingPlan = 'monthly' | 'annual';
+export type PlanType = PricingPlan;
+

@@ -123,6 +123,48 @@ async function main() {
     }
     console.log('✅ AI Provider error handled as JSON status 429 without HTML');
 
+    // 9. Test AI Completion Options: maxTokens >= 2048 & Un-truncated System Prompt
+    console.log('Test 9: Verify maxTokens is at least 2048 and prompt mandates complete answers');
+    let capturedOptions: any = null;
+    setAiProvider({
+      generateCompletion: async (opts) => {
+        capturedOptions = opts;
+        return 'Detailed, step-by-step guidance without truncation.';
+      }
+    });
+
+    const fullAnswerRes = await request(app)
+      .post('/api/support/chat')
+      .set('Origin', 'https://www.rankautonomous.com')
+      .set('X-Forwarded-For', '10.0.0.122')
+      .send({
+        messages: [
+          { role: 'user', content: 'Explain technical SEO audit steps and how RankAutonomous implements them.' }
+        ]
+      });
+
+    if (fullAnswerRes.status !== 200 || !fullAnswerRes.body.reply) {
+      throw new Error(`Expected 200 OK, got ${fullAnswerRes.status}: ${JSON.stringify(fullAnswerRes.body)}`);
+    }
+
+    if (!capturedOptions) {
+      throw new Error('generateCompletion was not called');
+    }
+
+    if (!capturedOptions.maxTokens || capturedOptions.maxTokens < 2048) {
+      throw new Error(`maxTokens is too small (${capturedOptions.maxTokens}), expected >= 2048`);
+    }
+
+    if (capturedOptions.systemPrompt.includes('Be concise, helpful, and actionable')) {
+      throw new Error('System prompt still contains outdated "Be concise" instruction');
+    }
+
+    if (!capturedOptions.systemPrompt.includes('step-by-step guidance') || !capturedOptions.systemPrompt.includes('cutting off mid-sentence')) {
+      throw new Error('System prompt missing complete, step-by-step guidance instructions');
+    }
+
+    console.log('✅ AI Provider called with maxTokens >= 2048 and complete answer system prompt');
+
   } catch (err: any) {
     console.error('❌ Test failed:', err);
     exitCode = 1;

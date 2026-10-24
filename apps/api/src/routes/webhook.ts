@@ -112,11 +112,15 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             },
           });
 
-          // Subscription purchased, clear pause state if active
+          // Subscription purchased, clear pause state if active and enable automation on user's websites
           if (sub.status === 'active' || sub.status === 'trialing') {
             await prisma.user.update({
               where: { id: userId },
               data: { isPaused: false },
+            });
+            await prisma.website.updateMany({
+              where: { userId },
+              data: { contentAutomationEnabled: true },
             });
           }
 
@@ -192,6 +196,10 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
               where: { id: userId },
               data: { isPaused: false },
             });
+            await prisma.website.updateMany({
+              where: { userId },
+              data: { contentAutomationEnabled: true },
+            });
           }
 
           console.log(`[Stripe Webhook] Updated subscription ${stripeSubscriptionId} status to "${status}"`);
@@ -212,6 +220,28 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             cancelAtPeriodEnd: true,
           },
         });
+
+        const deletedSub = await prisma.subscription.findFirst({
+          where: { stripeSubscriptionId },
+          select: { userId: true },
+        });
+
+        if (deletedSub?.userId) {
+          const remainingActive = await prisma.subscription.findFirst({
+            where: {
+              userId: deletedSub.userId,
+              status: { in: ['active', 'trialing', 'ACTIVE', 'TRIALING'] },
+              stripeSubscriptionId: { not: stripeSubscriptionId },
+            },
+          });
+          if (!remainingActive) {
+            await prisma.website.updateMany({
+              where: { userId: deletedSub.userId },
+              data: { contentAutomationEnabled: false },
+            });
+          }
+        }
+
         console.log(`[Stripe Webhook] Marked subscription ${stripeSubscriptionId} as canceled`);
         break;
       }
@@ -230,6 +260,19 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
               status: 'active',
             },
           });
+
+          const sub = await prisma.subscription.findFirst({
+            where: { stripeSubscriptionId },
+            select: { userId: true },
+          });
+
+          if (sub?.userId) {
+            await prisma.website.updateMany({
+              where: { userId: sub.userId },
+              data: { contentAutomationEnabled: true },
+            });
+          }
+
           console.log(`[Stripe Webhook] Invoice paid: confirmed active for subscription ${stripeSubscriptionId}`);
         }
         break;

@@ -31,7 +31,10 @@ Limitations & Rules:
 - RankAutonomous does NOT guarantee Google rankings.
 - RankAutonomous does NOT control external AI search rankings directly (like ChatGPT/Claude).
 - Do NOT provide database credentials, stripe keys, passwords, or system secrets.
-- Be concise, helpful, and actionable.
+- Provide thorough, comprehensive, and articulate responses with step-by-step guidance.
+- Address every part of multi-part user questions completely without omitting details or cutting off mid-sentence.
+- Use structured formatting (such as bullet points, numbered steps, and clear section headers) for technical explanations and workflows.
+- Remain helpful, accurate, and actionable.
 - If asked an unrelated question, politely refuse and state you only provide RankAutonomous support.
 - If the user reports a technical issue, provide general troubleshooting and suggest they contact human support if unresolved.
 `;
@@ -67,7 +70,8 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Rate Limiting
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+    const ip = forwarded || req.ip || req.socket.remoteAddress || 'unknown';
     const limitKey = userEmail ? `user:${userEmail}` : `ip:${ip}`;
     const maxReqs = userEmail ? MAX_REQUESTS_AUTH : MAX_REQUESTS_PUBLIC;
     const now = Date.now();
@@ -94,21 +98,21 @@ router.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Formatting conversation history for the provider
-    // The provider expects a single userPrompt and systemPrompt right now, but for chat we can stringify history
+    // Provide up to the last 8 messages for robust multi-turn context
     let conversationHistory = '';
-    // Take up to last 5 messages to avoid blowing up context
-    const recentMessages = messages.slice(-5);
+    const recentMessages = messages.slice(-8);
     for (const msg of recentMessages) {
       const role = msg.role === 'user' ? 'User' : 'Assistant';
       conversationHistory += `${role}: ${msg.content}\n`;
     }
 
     const aiProvider = getAiProvider();
+    const maxTokens = parseInt(process.env.SUPPORT_CHAT_MAX_TOKENS || '2048', 10);
     const responseText = await aiProvider.generateCompletion({
       task: 'chat',
       systemPrompt: contextualPrompt,
       userPrompt: conversationHistory,
-      maxTokens: 500,
+      maxTokens: isNaN(maxTokens) || maxTokens < 500 ? 2048 : maxTokens,
       temperature: 0.5
     });
 

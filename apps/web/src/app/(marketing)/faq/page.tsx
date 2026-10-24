@@ -30,6 +30,10 @@ export default function FAQPage() {
       a: 'We strictly identify legitimate opportunities: contextual guest posting spots, resource roundups, industry directories, and unlinked brand mentions. We draft respectful, personalized outreach pitches tailored to your brand.',
     },
     {
+      q: 'What are your subscription options and pricing?',
+      a: 'RankAutonomous offers a single complete plan: $149 USD/month on the flexible monthly plan, or $1,188 USD/year on the annual plan (equivalent to $99/month, saving $600/year). We also offer a 3-day full-access trial for $1.',
+    },
+    {
       q: 'What is your cancellation and refund policy?',
       a: 'All plans are processed via Stripe with zero setup fees or locked contracts. You can cancel at any time from your account settings. If you cancel, your subscription will remain active until the end of your prepaid period.',
     },

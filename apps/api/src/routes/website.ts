@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { requireSubscription } from '../middleware/subscription';
+import { requireSubscription, hasActiveSubscription } from '../middleware/subscription';
 import prisma from '../lib/database';
 import {
   generateKeywordSuggestions,
@@ -632,6 +632,7 @@ router.post(
       const { data } = fieldResult;
 
       // 3. Create Website Record (Server strictly assigns userId and CONNECTED status)
+      const hasActiveSub = await hasActiveSubscription(req.user!.id);
       const website = await prisma.website.create({
         data: {
           userId: req.user!.id,
@@ -647,6 +648,7 @@ router.post(
           targetCity: data.targetCity,
           primaryKeywords: data.primaryKeywords,
           platform: data.platform,
+          contentAutomationEnabled: hasActiveSub || req.user!.role === 'ADMIN',
           status: 'CONNECTED', // Initial state per PRD; becomes ACTIVE only after analysis completes
         },
         select: {

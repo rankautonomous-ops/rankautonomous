@@ -141,6 +141,8 @@
 
 .articleHeader {
   margin-bottom: 40px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border, #ded9d4);
 }
 
 .articleTitle {

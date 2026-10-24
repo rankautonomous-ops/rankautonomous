@@ -259,6 +259,10 @@ export async function syncStripeSubscriptionFromCheckoutSession(
       where: { id: userId },
       data: { isPaused: false },
     });
+    await prisma.website.updateMany({
+      where: { userId },
+      data: { contentAutomationEnabled: true },
+    });
   }
 
   console.log(`[Stripe Sync] Synchronized subscription ${sub.id} for user ${userId} from checkout session ${sessionId}`);

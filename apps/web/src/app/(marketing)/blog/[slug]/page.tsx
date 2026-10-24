@@ -44,7 +44,6 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
       siteName: 'RankAutonomous',
       type: 'article',
       publishedTime: post.publishedAt,
-      authors: [post.author.name],
       tags: post.keywords,
     },
     twitter: {
@@ -75,9 +74,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     headline: post.title,
     description: post.excerpt,
     author: {
-      '@type': 'Person',
-      name: post.author.name,
-      jobTitle: post.author.role,
+      '@type': 'Organization',
+      name: 'RankAutonomous',
+      url: baseUrl,
     },
     datePublished: post.publishedAt,
     publisher: {
@@ -122,18 +121,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         <h1 className={blogStyles.articleTitle}>{post.title}</h1>
         <p className={blogStyles.articleLead}>{post.excerpt}</p>
-
-        <div className={blogStyles.byline}>
-          <div className={blogStyles.authorBlock}>
-            <div className={blogStyles.authorAvatar}>
-              {post.author.name.charAt(0)}
-            </div>
-            <div className={blogStyles.authorDetails}>
-              <span className={blogStyles.bylineAuthor}>{post.author.name}</span>
-              <span className={blogStyles.bylineRole}>{post.author.role}</span>
-            </div>
-          </div>
-        </div>
       </header>
 
       {/* Article Body */}
