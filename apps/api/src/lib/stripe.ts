@@ -64,6 +64,8 @@ export function getPriceIdForPlan(plan: string): { priceId: string; interval: 'm
 
 /**
  * Resolves or creates a Stripe Customer record for an authenticated user.
+ * Validates that the customer exists in the active Stripe account, auto-healing
+ * any stale/deleted references or mismatched account IDs.
  */
 export async function getOrCreateStripeCustomer(user: {
   id: string;
@@ -80,17 +82,35 @@ export async function getOrCreateStripeCustomer(user: {
   });
 
   if (existingSub?.stripeCustomerId) {
-    return existingSub.stripeCustomerId;
+    try {
+      const customer = await stripe.customers.retrieve(existingSub.stripeCustomerId);
+      if (customer && !customer.deleted) {
+        return customer.id;
+      }
+    } catch (err: any) {
+      console.warn(
+        `[Stripe] Stored customer ID "${existingSub.stripeCustomerId}" is invalid on active Stripe account (${err?.message || err}). Clearing stale ID and resolving customer.`
+      );
+      await prisma.subscription.updateMany({
+        where: { userId: user.id, stripeCustomerId: existingSub.stripeCustomerId },
+        data: { stripeCustomerId: null },
+      });
+    }
   }
 
-  // 2. Query Stripe for customer with this email
+  // 2. Query Stripe for customer with this email in the active Stripe account
   const existingCustomers = await stripe.customers.list({
     email: user.email,
     limit: 1,
   });
 
   if (existingCustomers.data.length > 0) {
-    return existingCustomers.data[0].id;
+    const customerId = existingCustomers.data[0].id;
+    await prisma.subscription.updateMany({
+      where: { userId: user.id },
+      data: { stripeCustomerId: customerId },
+    });
+    return customerId;
   }
 
   // 3. Create new customer with internal userId attached in metadata
@@ -100,6 +120,11 @@ export async function getOrCreateStripeCustomer(user: {
     metadata: {
       userId: user.id,
     },
+  });
+
+  await prisma.subscription.updateMany({
+    where: { userId: user.id },
+    data: { stripeCustomerId: newCustomer.id },
   });
 
   return newCustomer.id;

@@ -98,7 +98,32 @@ router.post('/create-checkout-session', requireAuth, async (req: Request, res: R
       };
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (stripeErr: any) {
+      if (
+        stripeErr?.code === 'resource_missing' ||
+        stripeErr?.message?.includes('No such customer')
+      ) {
+        console.warn(
+          `[Stripe Checkout] Customer "${stripeCustomerId}" does not exist in active Stripe account. Generating fresh customer and retrying...`
+        );
+        const freshCustomer = await stripe.customers.create({
+          email: user.email,
+          name: user.name || undefined,
+          metadata: { userId: user.id },
+        });
+        sessionParams.customer = freshCustomer.id;
+        await prisma.subscription.updateMany({
+          where: { userId: user.id },
+          data: { stripeCustomerId: freshCustomer.id },
+        });
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else {
+        throw stripeErr;
+      }
+    }
 
     res.json({
       sessionId: session.id,
@@ -108,7 +133,7 @@ router.post('/create-checkout-session', requireAuth, async (req: Request, res: R
     console.error('[Stripe Checkout Error]:', error?.message || error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to initiate Stripe Checkout session.',
+      message: error?.message || 'Failed to initiate Stripe Checkout session.',
     });
   }
 });
