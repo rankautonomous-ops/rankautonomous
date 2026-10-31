@@ -7,6 +7,7 @@ import { OpportunityStatus, BacklinkOpportunityType, CampaignStatus } from '@pri
 import { discoverOpportunities } from '../services/backlinks/discovery/discoverOpportunities';
 import { qualifyOpportunity } from '../services/backlinks/qualifyOpportunity';
 import { generateOutreachMessage } from '../services/backlinks/generateOutreach';
+import { executeAutomaticBacklinkGeneration } from '../services/backlinks/automaticBacklinkWorkflow';
 import { QueueService } from '../services/queue';
 import { backlinkVerificationTask } from '../trigger/backlinkVerification';
 
@@ -69,6 +70,39 @@ router.post('/backlinks/discover', async (req: Request, res: Response): Promise<
   try {
     const candidates = await discoverOpportunities(websiteId, req.body);
     res.json({ candidates });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
+router.post('/backlinks/auto-generate', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId } = req.params;
+  const { articleId, topic, keyword, maxCandidates, sync } = req.body;
+
+  try {
+    if (sync === true) {
+      const result = await executeAutomaticBacklinkGeneration({
+        websiteId,
+        articleId,
+        topic,
+        keyword,
+        maxCandidates: typeof maxCandidates === 'number' ? maxCandidates : undefined
+      });
+      res.json(result);
+    } else {
+      const job = await QueueService.enqueue('AUTOMATIC_BACKLINK_GENERATION', {
+        websiteId,
+        articleId,
+        topic,
+        keyword,
+        maxCandidates: typeof maxCandidates === 'number' ? maxCandidates : undefined
+      });
+      res.status(202).json({
+        success: true,
+        message: 'Automatic backlink generation job enqueued',
+        jobId: job.id
+      });
+    }
   } catch (error: any) {
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
@@ -582,6 +616,98 @@ function formatBacklink<T extends Record<string, any>>(backlink: T): T & { lastC
   };
 }
 
+// Summary of backlink pipeline, verification status, and campaigns
+router.get('/backlinks/summary', async (req: Request, res: Response): Promise<void> => {
+  const { websiteId } = req.params;
+  try {
+    const [
+      oppDiscovered,
+      oppQualified,
+      oppReady,
+      oppContacted,
+      oppReplied,
+      oppAccepted,
+      oppAcquired,
+      oppRejected,
+      oppTotal,
+      blTotal,
+      blVerified,
+      blMissing,
+      blUnverified,
+      blError,
+      blActive,
+      blLost,
+      campDraft,
+      campReady,
+      campContacted,
+      campReplied,
+      campAccepted,
+      campRejected,
+      campTotal
+    ] = await Promise.all([
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'DISCOVERED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'QUALIFIED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'READY' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'CONTACTED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'REPLIED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'ACCEPTED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'LINK_ACQUIRED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId, status: 'REJECTED' } }),
+      prisma.backlinkOpportunity.count({ where: { websiteId } }),
+
+      prisma.backlink.count({ where: { websiteId } }),
+      prisma.backlink.count({ where: { websiteId, verificationStatus: 'VERIFIED' } }),
+      prisma.backlink.count({ where: { websiteId, verificationStatus: 'MISSING' } }),
+      prisma.backlink.count({ where: { websiteId, verificationStatus: 'UNVERIFIED' } }),
+      prisma.backlink.count({ where: { websiteId, verificationStatus: 'ERROR' } }),
+      prisma.backlink.count({ where: { websiteId, status: 'ACTIVE' } }),
+      prisma.backlink.count({ where: { websiteId, status: 'LOST' } }),
+
+      prisma.backlinkCampaign.count({ where: { websiteId, status: 'DRAFT' } }),
+      prisma.backlinkCampaign.count({ where: { websiteId, status: 'READY' } }),
+      prisma.backlinkCampaign.count({ where: { websiteId, status: 'CONTACTED' } }),
+      prisma.backlinkCampaign.count({ where: { websiteId, status: 'REPLIED' } }),
+      prisma.backlinkCampaign.count({ where: { websiteId, status: 'ACCEPTED' } }),
+      prisma.backlinkCampaign.count({ where: { websiteId, status: 'REJECTED' } }),
+      prisma.backlinkCampaign.count({ where: { websiteId } })
+    ]);
+
+    res.json({
+      opportunities: {
+        total: oppTotal,
+        discovered: oppDiscovered,
+        qualified: oppQualified,
+        ready: oppReady,
+        contacted: oppContacted,
+        replied: oppReplied,
+        accepted: oppAccepted,
+        linkAcquired: oppAcquired,
+        rejected: oppRejected
+      },
+      backlinks: {
+        total: blTotal,
+        verified: blVerified,
+        missing: blMissing,
+        unverified: blUnverified,
+        error: blError,
+        active: blActive,
+        lost: blLost
+      },
+      campaigns: {
+        total: campTotal,
+        draft: campDraft,
+        ready: campReady,
+        contacted: campContacted,
+        replied: campReplied,
+        accepted: campAccepted,
+        rejected: campRejected
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+  }
+});
+
 // List backlinks
 router.get('/backlinks', async (req: Request, res: Response) => {
   const { websiteId } = req.params;
@@ -666,6 +792,19 @@ router.post('/backlinks', async (req: Request, res: Response) => {
         status: status === 'LOST' ? 'LOST' : 'ACTIVE',
       }
     });
+
+    // Automatically enqueue live verification for the recorded backlink
+    try {
+      const useTrigger = process.env.USE_TRIGGER_BACKLINK_VERIFICATION === 'true';
+      const payload: any = { backlinkId: backlink.id };
+      if (useTrigger) payload.executionProvider = 'trigger';
+      const job = await QueueService.enqueue('BACKLINK_VERIFICATION', payload);
+      if (useTrigger) {
+        await backlinkVerificationTask.trigger({ backlinkId: backlink.id, jobId: job.id }).catch(() => {});
+      }
+    } catch (queueErr: any) {
+      console.warn('[Create Backlink] Could not auto-enqueue verification:', queueErr?.message);
+    }
 
     res.status(201).json(formatBacklink(backlink));
   } catch (error) {

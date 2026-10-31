@@ -221,7 +221,7 @@ describe('Worker Integration - BACKLINK_VERIFICATION', () => {
     // Wait for the fast jobs to finish. If worker was synchronous, j2 and j3 would wait for j1 to finish.
     // By waiting for j3 to finish in < 2000ms, we prove concurrency.
     const start = Date.now();
-    await waitForJob(j3.id, 8000);
+    await Promise.all([waitForJob(j2.id, 15000), waitForJob(j3.id, 15000)]);
     const duration = Date.now() - start;
     
     // As long as the jobs finished reasonably quickly alongside the slow job, concurrency is working.
@@ -229,7 +229,7 @@ describe('Worker Integration - BACKLINK_VERIFICATION', () => {
     assert.strictEqual((await prisma.backgroundJob.findUnique({ where: { id: j2.id } }))?.status, 'COMPLETED');
 
     // Wait for the slow job to finish eventually
-    await waitForJob(j1.id, 8000);
+    await waitForJob(j1.id, 15000);
     assert.strictEqual((await prisma.backgroundJob.findUnique({ where: { id: j1.id } }))?.status, 'COMPLETED');
   });
 

@@ -10,6 +10,7 @@ import styles from '../app.module.css';
 import { InvoicesTable } from './components/InvoicesTable';
 import { PaymentMethodManager } from './components/PaymentMethodManager';
 import { SubscriptionManager } from './components/SubscriptionManager';
+import { PlanChangeManager } from './components/PlanChangeManager';
 
 interface SubscriptionData {
   id: string;
@@ -20,6 +21,19 @@ interface SubscriptionData {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   createdAt: string;
+}
+
+interface CancellationDetails {
+  isCancelling: boolean;
+  cancelAtPeriodEnd: boolean;
+  effectiveDate: string | null;
+  planCode: string;
+  planName: string;
+  autoRenews: boolean;
+  subsequentChargeWillOccur: boolean;
+  subsequentAmount: string;
+  nextBillingDate: string | null;
+  notice: string;
 }
 
 type BillingState = 'LOADING' | 'SYNCING' | 'ACTIVE' | 'TRIALING' | 'INACTIVE' | 'PAUSED' | 'ERROR';
@@ -41,6 +55,7 @@ function BillingContent() {
   );
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [trialData, setTrialData] = useState<{ trialActive: boolean; trialStartedAt: string | null; trialEndsAt: string | null; isPaused: boolean } | null>(null);
+  const [cancellationDetails, setCancellationDetails] = useState<CancellationDetails | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncAttempt, setSyncAttempt] = useState(1);
@@ -98,13 +113,17 @@ function BillingContent() {
           isPaused: data.isPaused,
         });
 
+        if (data.cancellationDetails) {
+          setCancellationDetails(data.cancellationDetails);
+        }
+
         if (data.isPaused) {
           setSubscription(fetchedSub);
           setBillingState('PAUSED');
         } else if (isEntitledActive) {
-          // Authoritative ACTIVE subscription verified
+          // Authoritative ACTIVE or TRIALING subscription verified
           setSubscription(fetchedSub);
-          if (data.trialActive && !fetchedSub) {
+          if (data.trialActive || fetchedSub?.plan === 'trial' || fetchedSub?.status === 'TRIALING') {
             setBillingState('TRIALING');
           } else {
             setBillingState('ACTIVE');
@@ -399,9 +418,19 @@ function BillingContent() {
               <InvoicesTable />
             </div>
 
+            <PlanChangeManager
+              currentPlan={subscription.plan}
+              isCancelling={subscription.cancelAtPeriodEnd}
+              onUpdate={() => fetchSubscriptionStatus(1)}
+            />
+
             <SubscriptionManager 
               subscriptionId={subscription.id} 
               cancelAtPeriodEnd={subscription.cancelAtPeriodEnd} 
+              effectiveDate={subscription.currentPeriodEnd}
+              planName={subscription.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
+              isTrial={false}
+              subsequentAmount={subscription.plan === 'annual' ? '$1,188.00/year' : '$149.00/month'}
               onUpdate={() => fetchSubscriptionStatus(1)} 
             />
           </div>
@@ -473,21 +502,21 @@ function BillingContent() {
               </span>
             </div>
 
-            <div className={styles.infoGrid} style={{ marginBottom: '32px' }}>
+            <div className={styles.infoGrid} style={{ marginBottom: '24px' }}>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Pricing Rate</span>
                 <span className={styles.infoValue}>
-                  $1 paid
+                  $1.00 for 3 days access
                 </span>
               </div>
 
               <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>Trial Started At</span>
+                <span className={styles.infoLabel}>Trial Started</span>
                 <span className={styles.infoValue}>
                   {trialData.trialStartedAt
                     ? new Date(trialData.trialStartedAt).toLocaleDateString('en-US', {
                         year: 'numeric',
-                        month: 'long',
+                        month: 'short',
                         day: 'numeric',
                       })
                     : 'Active'}
@@ -495,41 +524,80 @@ function BillingContent() {
               </div>
 
               <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>Trial Ends At</span>
+                <span className={styles.infoLabel}>Trial Ends</span>
                 <span className={styles.infoValue}>
                   {trialData.trialEndsAt
                     ? new Date(trialData.trialEndsAt).toLocaleDateString('en-US', {
                         year: 'numeric',
-                        month: 'long',
+                        month: 'short',
                         day: 'numeric',
                       })
                     : 'Active'}
                 </span>
               </div>
-            </div>
 
-            <div style={{ marginTop: '40px', padding: '24px', background: 'var(--surface-soft, #f4eee9)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>Ready to subscribe?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>Choose a plan below to keep your RankAutonomous engine running after your trial ends.</p>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleStartCheckout('monthly')}
-                  disabled={actionLoading}
-                  className={styles.secondaryButton}
-                >
-                  {actionLoading ? 'Connecting...' : PRICING_CONFIG.monthly.buttonLabel}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleStartCheckout('annual')}
-                  disabled={actionLoading}
-                  className={styles.primaryButton}
-                >
-                  {actionLoading ? 'Connecting...' : PRICING_CONFIG.annual.buttonLabel}
-                </button>
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Subsequent Billing</span>
+                <span className={styles.infoValue}>
+                  $149.00 / month
+                </span>
+              </div>
+
+              <div className={styles.infoItem}>
+                <span className={styles.infoLabel}>Auto-Renewal Status</span>
+                <span className={styles.infoValue}>
+                  {subscription?.cancelAtPeriodEnd ? (
+                    <span style={{ color: 'var(--error)', fontWeight: 600 }}>Cancels at trial end (No charge)</span>
+                  ) : (
+                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>Active (Auto-renews at $149/mo)</span>
+                  )}
+                </span>
               </div>
             </div>
+
+            {/* Trial Billing Disclosure Banner */}
+            <div
+              style={{
+                background: subscription?.cancelAtPeriodEnd ? '#fdf6ed' : 'rgba(0, 0, 0, 0.02)',
+                border: subscription?.cancelAtPeriodEnd ? '1px solid #fae2b6' : '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '14px 18px',
+                marginBottom: '24px',
+                fontSize: '13px',
+                lineHeight: 1.5,
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {subscription?.cancelAtPeriodEnd ? (
+                <span>
+                  <strong>Cancellation Scheduled:</strong> Your 3-day trial remains active until{' '}
+                  {trialData.trialEndsAt ? new Date(trialData.trialEndsAt).toLocaleDateString() : 'trial end'}. You will <strong>NOT</strong> be charged the $149/month subscription fee. You can resume auto-billing anytime before it ends.
+                </span>
+              ) : (
+                <span>
+                  <strong>Automatic Billing Terms:</strong> Your $1 trial will automatically convert to the monthly subscription ($149.00/month) on{' '}
+                  {trialData.trialEndsAt ? new Date(trialData.trialEndsAt).toLocaleDateString() : 'trial end'} unless cancelled before then. You can cancel anytime with 1 click below without questions asked.
+                </span>
+              )}
+            </div>
+
+            {/* Plan Change / Upgrade options */}
+            <PlanChangeManager
+              currentPlan="trial"
+              isCancelling={Boolean(subscription?.cancelAtPeriodEnd)}
+              onUpdate={() => fetchSubscriptionStatus(1)}
+            />
+
+            {/* Trial Cancellation & Management */}
+            <SubscriptionManager
+              subscriptionId={subscription?.id}
+              cancelAtPeriodEnd={subscription?.cancelAtPeriodEnd || false}
+              effectiveDate={trialData.trialEndsAt || subscription?.currentPeriodEnd}
+              planName="3-Day Trial"
+              isTrial={true}
+              subsequentAmount="$149.00/month"
+              onUpdate={() => fetchSubscriptionStatus(1)}
+            />
           </div>
         </div>
       )}

@@ -41,6 +41,20 @@ export const PRICING_CONFIG = {
   },
   annual: annualConfig,
   yearly: annualConfig,
+  trial: {
+    amountDollars: 1,
+    amountCents: 100,
+    durationDays: 3,
+    interval: 'day' as const,
+    formattedPrice: '$1',
+    subsequentPlan: 'monthly' as const,
+    subsequentAmountDollars: 149,
+    formattedSubsequentPrice: '$149/month',
+    display: '$1 for 3-day trial, then $149/month',
+    buttonLabel: 'Try for $1 (3-Day Full Access)',
+    disclosureText: '$1.00 for 3 days full access, then automatically renews at $149.00/month unless cancelled in your dashboard before trial ends.',
+    description: 'Full access for 3 days for $1. Automatically renews at $149/month unless cancelled before trial ends.',
+  },
   savings: {
     annualSavingsDollars: 600,
     annualSavingsCents: 60000,
@@ -51,6 +65,6 @@ export const PRICING_CONFIG = {
   },
 } as const;
 
-export type PlanType = 'monthly' | 'annual';
+export type PlanType = 'monthly' | 'annual' | 'trial';
 export type PricingPlan = PlanType;
 

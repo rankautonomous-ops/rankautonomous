@@ -60,6 +60,8 @@ router.get('/overview', async (req: Request, res: Response) => {
     const activeWebsites = await prisma.website.count({ where: { status: 'ACTIVE' } });
     
     const activeSubscriptions = await prisma.subscription.count({ where: { status: 'active' } });
+    const trialingSubscriptions = await prisma.subscription.count({ where: { status: 'trialing' } });
+    const pastDueSubscriptions = await prisma.subscription.count({ where: { status: 'past_due' } });
     const canceledSubscriptions = await prisma.subscription.count({ where: { status: 'canceled' } });
 
     const totalArticles = await prisma.article.count();
@@ -84,7 +86,12 @@ router.get('/overview', async (req: Request, res: Response) => {
       metrics: {
         users: { total: totalUsers, recent: newUsers },
         websites: { total: totalWebsites, active: activeWebsites },
-        subscriptions: { active: activeSubscriptions, canceled: canceledSubscriptions },
+        subscriptions: {
+          active: activeSubscriptions,
+          trialing: trialingSubscriptions,
+          pastDue: pastDueSubscriptions,
+          canceled: canceledSubscriptions,
+        },
         content: { total: totalArticles, pendingReview: reviewArticles, published: publishedArticles },
         seo: { totalAudits },
         keywords: { tracked: totalKeywords },
@@ -109,6 +116,7 @@ router.get('/users', async (req: Request, res: Response) => {
     const where = search ? {
       OR: [
         { email: { contains: search, mode: 'insensitive' as const } },
+        { name: { contains: search, mode: 'insensitive' as const } },
         { id: { contains: search, mode: 'insensitive' as const } }
       ]
     } : {};
@@ -126,12 +134,17 @@ router.get('/users', async (req: Request, res: Response) => {
       prisma.user.count({ where })
     ]);
 
-    // Sanitize output
+    // Sanitize output (strictly exclude passwords, tokens, and sensitive secrets)
     const sanitizedUsers = users.map(u => ({
       id: u.id,
       email: u.email,
+      name: u.name,
       role: u.role,
-      subscriptionStatus: u.subscriptions[0]?.status || 'none',
+      trialActive: u.trialActive,
+      trialEndsAt: u.trialEndsAt,
+      isPaused: u.isPaused,
+      subscriptionStatus: u.subscriptions[0]?.status || (u.trialActive ? 'trialing' : 'none'),
+      subscriptionPlan: u.subscriptions[0]?.plan || (u.trialActive ? 'trial' : 'none'),
       createdAt: u.createdAt,
       websiteCount: u._count.websites
     }));
@@ -255,14 +268,40 @@ router.get('/websites/:id', async (req: Request, res: Response) => {
 router.get('/subscriptions', async (req: Request, res: Response) => {
   try {
     const { skip, take, page, limit } = getPagination(req);
+    const statusFilter = (req.query.status as string) || '';
+    const search = (req.query.search as string) || '';
+
+    const where: any = {};
+    if (statusFilter && statusFilter !== 'ALL') {
+      where.status = statusFilter.toLowerCase();
+    }
+    if (search) {
+      where.OR = [
+        { plan: { contains: search, mode: 'insensitive' as const } },
+        { user: { email: { contains: search, mode: 'insensitive' as const } } },
+        { stripeSubscriptionId: { contains: search, mode: 'insensitive' as const } },
+      ];
+    }
     
     const [subscriptions, total] = await Promise.all([
       prisma.subscription.findMany({
+        where,
         skip, take,
         orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, email: true } } }
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              trialActive: true,
+              trialEndsAt: true,
+              isPaused: true,
+            },
+          },
+        },
       }),
-      prisma.subscription.count()
+      prisma.subscription.count({ where }),
     ]);
 
     res.json({ subscriptions, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
@@ -524,7 +563,8 @@ router.get('/audit-logs', async (req: Request, res: Response) => {
     const [logs, total] = await Promise.all([
       prisma.auditLog.findMany({
         skip, take,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, email: true, name: true } } },
       }),
       prisma.auditLog.count()
     ]);

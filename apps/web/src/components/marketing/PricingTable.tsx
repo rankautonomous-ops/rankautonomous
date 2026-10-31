@@ -219,9 +219,11 @@ export default function PricingTable({ userSession = false }: PricingTableProps)
               </>
             )}
           </button>
-          <p className={styles.guaranteeText} style={{ marginTop: '8px' }}>
-            Get full RankAutonomous access for 3 days. Optional upgrade afterwards.
-          </p>
+          <div style={{ marginTop: '10px', padding: '10px 14px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <p className={styles.guaranteeText} style={{ margin: 0, fontSize: '12px', lineHeight: 1.5, color: 'var(--text-muted)' }}>
+              <strong>Trial &amp; Billing Terms:</strong> Pay $1.00 today for 3 days of full access. Automatically renews at $149.00/month after 3 days unless cancelled in your dashboard before the trial ends. Cancel anytime with one click — no questions asked.
+            </p>
+          </div>
         </div>
       </div>
     </div>

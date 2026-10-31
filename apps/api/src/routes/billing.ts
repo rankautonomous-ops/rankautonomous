@@ -30,34 +30,92 @@ router.post('/create-checkout-session', requireAuth, async (req: Request, res: R
       return;
     }
 
+    // Duplicate charge prevention: Check if user already has an active subscription or trial
+    const existingActiveSub = await prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        status: { in: ['active', 'trialing', 'ACTIVE', 'TRIALING'] },
+      },
+    });
+
+    if (existingActiveSub) {
+      res.status(409).json({
+        error: 'Conflict',
+        message: 'You already have an active subscription or trial. You can manage or upgrade your plan in your billing settings.',
+      });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (plan === 'trial' && dbUser?.trialActive && dbUser.trialEndsAt && new Date(dbUser.trialEndsAt).getTime() > Date.now()) {
+      res.status(409).json({
+        error: 'Conflict',
+        message: 'You already have an active 3-day trial. You can upgrade your plan anytime from your dashboard.',
+      });
+      return;
+    }
+
     const stripeCustomerId = await getOrCreateStripeCustomer(user);
 
     let sessionParams: Stripe.Checkout.SessionCreateParams;
 
     if (plan === 'trial') {
+      const monthlyPriceInfo = getPriceIdForPlan('monthly');
+      if (!monthlyPriceInfo || !monthlyPriceInfo.priceId) {
+        res.status(400).json({
+          error: 'Configuration Error',
+          message: 'Stripe Monthly Price ID is not configured on the server.',
+        });
+        return;
+      }
+
       sessionParams = {
         customer: stripeCustomerId,
-        mode: 'payment',
+        mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [
           {
+            // Monthly recurring subscription ($149/mo) with 3-day trial
+            price: monthlyPriceInfo.priceId,
+            quantity: 1,
+          },
+          {
+            // $1.00 upfront trial fee charged immediately on invoice #1
             price_data: {
               currency: 'usd',
               product_data: {
-                name: 'RankAutonomous 3-Day Trial',
-                description: 'Full access to RankAutonomous for 3 days',
+                name: 'RankAutonomous 3-Day Trial Access',
+                description: '$1.00 upfront for 3 days full access, then automatically renews at $149.00/month unless cancelled in dashboard before trial ends.',
               },
               unit_amount: 100, // $1.00 in cents
             },
             quantity: 1,
           },
         ],
+        subscription_data: {
+          trial_period_days: 3,
+          metadata: {
+            userId: user.id,
+            plan: 'trial',
+            subsequentPlan: 'monthly',
+            trialDurationDays: '3',
+            subsequentPrice: '$149/mo',
+          },
+        },
+        custom_text: {
+          submit: {
+            message: 'By starting your $1.00 3-day trial, you authorize RankAutonomous to charge $1.00 today and automatically charge $149.00/month thereafter unless you cancel in your dashboard before the trial ends.',
+          },
+        },
         success_url: `${getStripeAppUrl()}/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}&plan=trial`,
         cancel_url: `${getStripeAppUrl()}/pricing?checkout=cancelled`,
         client_reference_id: user.id,
         metadata: {
           userId: user.id,
           plan: 'trial',
+          subsequentPlan: 'monthly',
+          trialDurationDays: '3',
+          subsequentPrice: '$149/mo',
         },
       };
     } else {
@@ -279,6 +337,20 @@ export async function syncStripeSubscriptionFromCheckoutSession(
     },
   });
 
+  if (plan === 'trial' || sub.status === 'trialing') {
+    const trialStart = sub.trial_start ? new Date(sub.trial_start * 1000) : currentPeriodStart;
+    const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : currentPeriodEnd;
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        trialActive: true,
+        trialStartedAt: trialStart,
+        trialEndsAt: trialEnd,
+        isPaused: false,
+      },
+    });
+  }
+
   if (sub.status === 'active' || sub.status === 'trialing') {
     await prisma.user.update({
       where: { id: userId },
@@ -334,8 +406,10 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
     if (!subscription && sessionId && sessionId.startsWith('cs_')) {
       try {
         const session = await stripe.checkout.sessions.retrieve(sessionId);
-        if (session.metadata?.plan === 'trial') {
-          // Sync trial state directly if paid
+        if (session.subscription) {
+          subscription = await syncStripeSubscriptionFromCheckoutSession(sessionId, user.id);
+        } else if (session.metadata?.plan === 'trial') {
+          // Sync trial state directly if paid without subscription
           if (session.payment_status === 'paid' && dbUser) {
             const now = new Date();
             const trialEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -354,8 +428,6 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
             dbUser.trialEndsAt = trialEndsAt;
             dbUser.isPaused = false;
           }
-        } else {
-          subscription = await syncStripeSubscriptionFromCheckoutSession(sessionId, user.id);
         }
       } catch (syncErr: any) {
         console.warn(`[Subscription Sync Warning]: Failed to sync session ${sessionId}:`, syncErr.message);
@@ -383,6 +455,44 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
       }
     }
 
+    // Determine current plan display name and cancellation details
+    const isTrial = Boolean(
+      (subscription && (subscription.plan === 'trial' || subscription.status?.toLowerCase() === 'trialing')) ||
+      (dbUser?.trialActive && dbUser.trialEndsAt && new Date(dbUser.trialEndsAt).getTime() > Date.now())
+    );
+
+    const isAnnual = subscription?.plan === 'annual';
+    const isMonthly = !isTrial && !isAnnual && (subscription?.plan === 'monthly' || hasActive);
+
+    const planCode = isTrial ? 'trial' : (isAnnual ? 'annual' : (isMonthly ? 'monthly' : (subscription?.plan || 'none')));
+    const planName = isTrial
+      ? '3-Day Trial ($1.00)'
+      : (isAnnual ? 'Annual Plan ($1,188/year)' : (isMonthly ? 'Monthly Plan ($149/month)' : 'No Active Plan'));
+
+    const effectiveDate = subscription?.currentPeriodEnd || dbUser?.trialEndsAt || null;
+    const isCancelling = Boolean(subscription?.cancelAtPeriodEnd);
+
+    const cancellationDetails = {
+      isCancelling,
+      cancelAtPeriodEnd: isCancelling,
+      effectiveDate,
+      planCode,
+      planName,
+      autoRenews: hasActive && !isCancelling,
+      subsequentChargeWillOccur: hasActive && !isCancelling,
+      subsequentAmount: isAnnual ? '$1,188.00/year' : '$149.00/month',
+      nextBillingDate: (hasActive && !isCancelling && effectiveDate) ? effectiveDate : null,
+      notice: isCancelling
+        ? (isTrial
+            ? `Your trial is scheduled to cancel. Full access remains active until ${effectiveDate ? new Date(effectiveDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'the end of your 3-day period'}. You will NOT be charged the $149.00 monthly subscription fee.`
+            : `Your subscription is scheduled to cancel. Access remains active until ${effectiveDate ? new Date(effectiveDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'period end'}. You will not be charged again.`)
+        : (isTrial
+            ? `Your 3-day trial is active. It will automatically convert to the monthly subscription ($149/mo) on ${effectiveDate ? new Date(effectiveDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'trial end'} unless cancelled before then.`
+            : (hasActive
+                ? `Your subscription automatically renews on ${effectiveDate ? new Date(effectiveDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'the next billing cycle'}.`
+                : 'No active subscription.')),
+    };
+
     res.json({
       subscription: subscription
         ? {
@@ -402,6 +512,7 @@ router.get('/subscription', requireAuth, async (req: Request, res: Response): Pr
       trialStartedAt: dbUser?.trialStartedAt || null,
       trialEndsAt: dbUser?.trialEndsAt || null,
       isPaused: dbUser?.isPaused || false,
+      cancellationDetails,
     });
   } catch (error: any) {
     console.error('[Subscription Fetch Error]:', error?.message || error);
@@ -575,7 +686,7 @@ router.post('/payment-methods/setup', requireAuth, async (req: Request, res: Res
 
 /**
  * POST /api/billing/subscription/cancel
- * Toggles cancel_at_period_end for the active subscription.
+ * Toggles cancel_at_period_end for the active subscription or trial.
  */
 router.post('/subscription/cancel', requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -589,28 +700,193 @@ router.post('/subscription/cancel', requireAuth, async (req: Request, res: Respo
 
     const subscription = await prisma.subscription.findFirst({
       where: { userId: user.id, status: { in: ['active', 'trialing', 'ACTIVE', 'TRIALING'] } },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!subscription || !subscription.stripeSubscriptionId) {
-      res.status(404).json({ error: 'Not Found', message: 'No active subscription found to modify.' });
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+
+    if (subscription?.stripeSubscriptionId) {
+      const updated = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+        cancel_at_period_end: cancel,
+      });
+
+      // Sync database immediately
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { cancelAtPeriodEnd: cancel },
+      });
+
+      const effectiveDate = subscription.currentPeriodEnd || dbUser?.trialEndsAt;
+      const isTrial = subscription.plan === 'trial' || subscription.status.toLowerCase() === 'trialing';
+
+      res.json({
+        success: true,
+        cancelAtPeriodEnd: updated.cancel_at_period_end,
+        effectiveDate,
+        message: cancel
+          ? (isTrial
+              ? 'Your $1 trial cancellation has been scheduled. Full access continues until your trial ends, and you will not be charged the $149/mo subscription fee.'
+              : 'Your subscription cancellation has been scheduled. Full access continues until your billing period ends, and you will not be charged again.')
+          : 'Subscription renewal has been resumed.',
+      });
       return;
     }
 
-    const updated = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-      cancel_at_period_end: cancel
-    });
+    if (dbUser?.trialActive) {
+      const effectiveDate = dbUser.trialEndsAt;
+      res.json({
+        success: true,
+        cancelAtPeriodEnd: cancel,
+        effectiveDate,
+        message: cancel
+          ? 'Your $1 trial cancellation has been confirmed. Full access continues until your trial ends with no subsequent charges.'
+          : 'Trial renewal resumed.',
+      });
+      return;
+    }
 
-    // Sync database immediately
-    await prisma.subscription.update({
-      where: { id: subscription.id },
-      data: { cancelAtPeriodEnd: cancel }
-    });
-
-    res.json({ success: true, cancelAtPeriodEnd: updated.cancel_at_period_end });
+    res.status(404).json({ error: 'Not Found', message: 'No active subscription or trial found to modify.' });
   } catch (error: any) {
     console.error('[Stripe Cancel Error]:', error?.message || error);
     res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update subscription cancellation status.' });
+  }
+});
+
+/**
+ * POST /api/billing/subscription/change-plan
+ * Allows upgrading or switching plans between monthly and annual plans.
+ * Automatically prorates via Stripe and synchronizes database state.
+ */
+router.post('/subscription/change-plan', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const { newPlan } = req.body || {};
+
+    if (!newPlan || (newPlan !== 'monthly' && newPlan !== 'annual')) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid plan selection. Expected "monthly" or "annual".',
+      });
+      return;
+    }
+
+    const subscription = await prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        status: { in: ['active', 'trialing', 'ACTIVE', 'TRIALING'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'No active Stripe subscription found to modify. Please subscribe to a plan first.',
+      });
+      return;
+    }
+
+    if (subscription.plan === newPlan) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: `You are already subscribed to the ${newPlan} plan.`,
+      });
+      return;
+    }
+
+    const priceInfo = getPriceIdForPlan(newPlan);
+    if (!priceInfo || !priceInfo.priceId) {
+      res.status(400).json({
+        error: 'Configuration Error',
+        message: `Stripe Price ID for plan "${newPlan}" is not configured on the server.`,
+      });
+      return;
+    }
+
+    // Retrieve subscription from Stripe to obtain the current item ID
+    const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+    const currentItem = stripeSub.items.data[0];
+
+    if (!currentItem) {
+      res.status(400).json({
+        error: 'Invalid Subscription',
+        message: 'Subscription has no line items on Stripe.',
+      });
+      return;
+    }
+
+    const updateParams: Stripe.SubscriptionUpdateParams = {
+      items: [
+        {
+          id: currentItem.id,
+          price: priceInfo.priceId,
+        },
+      ],
+      proration_behavior: 'create_prorations',
+      cancel_at_period_end: false,
+      metadata: {
+        userId: user.id,
+        plan: newPlan,
+        interval: priceInfo.interval,
+      },
+    };
+
+    // If currently trialing, end trial immediately so new plan activates
+    if (stripeSub.status === 'trialing') {
+      updateParams.trial_end = 'now';
+    }
+
+    const updatedStripeSub = await stripe.subscriptions.update(
+      subscription.stripeSubscriptionId,
+      updateParams
+    );
+
+    const { currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd } = extractPeriodDates(updatedStripeSub);
+
+    const updatedSub = await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        plan: newPlan,
+        interval: priceInfo.interval,
+        status: updatedStripeSub.status,
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd,
+      },
+    });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        trialActive: false,
+        isPaused: false,
+      },
+    });
+
+    await prisma.website.updateMany({
+      where: { userId: user.id },
+      data: { contentAutomationEnabled: true },
+    });
+
+    res.json({
+      success: true,
+      subscription: {
+        id: updatedSub.id,
+        plan: updatedSub.plan,
+        interval: updatedSub.interval,
+        status: updatedSub.status.toUpperCase(),
+        currentPeriodStart: updatedSub.currentPeriodStart,
+        currentPeriodEnd: updatedSub.currentPeriodEnd,
+        cancelAtPeriodEnd: updatedSub.cancelAtPeriodEnd,
+      },
+      message: `Successfully switched to the ${newPlan} plan.`,
+    });
+  } catch (error: any) {
+    console.error('[Stripe Change Plan Error]:', error?.message || error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: error?.message || 'Failed to update subscription plan.',
+    });
   }
 });
 

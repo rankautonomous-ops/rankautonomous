@@ -66,7 +66,7 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
       where: { websiteId, createdAt: { lte: periodEnd } },
       orderBy: { createdAt: 'desc' },
     });
-    
+
     const previousAudit = await prisma.seoAudit.findFirst({
       where: { websiteId, createdAt: { lte: prevPeriodEnd } },
       orderBy: { createdAt: 'desc' },
@@ -100,19 +100,39 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
 
     // Backlinks
     const linksAcquired = await prisma.backlink.count({
-      where: { websiteId, createdAt: { gte: periodStart, lte: periodEnd } },
+      where: {
+        websiteId,
+        verificationStatus: 'VERIFIED',
+        createdAt: { gte: periodStart, lte: periodEnd }
+      },
     });
 
     const linksVerified = await prisma.backlink.count({
-      where: { websiteId, status: 'VERIFIED' },
+      where: { websiteId, verificationStatus: 'VERIFIED' },
     });
 
     const linksMissing = await prisma.backlink.count({
-      where: { websiteId, status: 'MISSING' },
+      where: { websiteId, verificationStatus: 'MISSING' },
     });
-    
+
     const linksPending = await prisma.backlink.count({
-      where: { websiteId, status: 'UNVERIFIED' },
+      where: { websiteId, verificationStatus: 'UNVERIFIED' },
+    });
+
+    const linksError = await prisma.backlink.count({
+      where: { websiteId, verificationStatus: 'ERROR' },
+    });
+
+    const opportunitiesDiscovered = await prisma.backlinkOpportunity.count({
+      where: { websiteId, createdAt: { gte: periodStart, lte: periodEnd } }
+    });
+
+    const opportunitiesQualified = await prisma.backlinkOpportunity.count({
+      where: { websiteId, status: 'QUALIFIED' }
+    });
+
+    const opportunitiesReady = await prisma.backlinkOpportunity.count({
+      where: { websiteId, status: 'READY' }
     });
 
     // Keywords
@@ -129,7 +149,7 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
     let prevCtr = null;
     let currentPosition = null;
     let prevPosition = null;
-    
+
     // GSC logic
     try {
       const gscCurrent = await getSearchConsoleData(website.userId, website.url, periodStart.toISOString(), periodEnd.toISOString(), ['date']);
@@ -137,7 +157,7 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
         currentOrganicClicks = gscCurrent.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0);
         currentOrganicImpressions = gscCurrent.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0);
         currentCtr = currentOrganicImpressions > 0 ? (currentOrganicClicks / currentOrganicImpressions) * 100 : 0;
-        
+
         let totalPos = 0;
         let posCount = 0;
         gscCurrent.rows.forEach((row: any) => {
@@ -154,7 +174,7 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
         prevOrganicClicks = gscPrev.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0);
         prevOrganicImpressions = gscPrev.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0);
         prevCtr = prevOrganicImpressions > 0 ? (prevOrganicClicks / prevOrganicImpressions) * 100 : 0;
-        
+
         let totalPos = 0;
         let posCount = 0;
         gscPrev.rows.forEach((row: any) => {
@@ -177,7 +197,7 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
       if (gaCurrent && gaCurrent.rows) {
         currentSessions = gaCurrent.rows.reduce((sum: number, row: any) => sum + parseInt(row.metricValues[0].value, 10), 0);
       }
-      
+
       const gaPrev = await getAnalyticsData(website.userId, website.url, prevPeriodStart.toISOString(), prevPeriodEnd.toISOString(), ['sessions']);
       if (gaPrev && gaPrev.rows) {
         prevSessions = gaPrev.rows.reduce((sum: number, row: any) => sum + parseInt(row.metricValues[0].value, 10), 0);
@@ -202,14 +222,23 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
     }
 
     summaryLines.push(`${recsCompleted} recommendations were completed.`);
-    summaryLines.push(`${linksAcquired} backlinks were acquired.`);
+    if (linksAcquired > 0) {
+      summaryLines.push(`${linksAcquired} verified backlinks were acquired.`);
+    } else if (linksVerified > 0) {
+      summaryLines.push(`${linksVerified} verified backlinks are active.`);
+    } else {
+      summaryLines.push(`0 verified backlinks were acquired.`);
+    }
+    if (linksPending > 0) {
+      summaryLines.push(`${linksPending} backlinks are currently pending live verification.`);
+    }
     summaryLines.push(`${articlesPublished} articles were published.`);
 
     let finalSummary = summaryLines.join(' ');
-    
+
     // Attempt AI summary if possible
     try {
-      const aiPrompt = `Turn these verified metrics into a concise 3-4 sentence prose summary. Do NOT invent numbers. Metrics: ${finalSummary}`;
+      const aiPrompt = `Turn these verified metrics into a concise 3-4 sentence prose summary. Do NOT invent numbers or claim unverified links are acquired. Metrics: ${finalSummary}`;
       const aiResponse = await getAiProvider().generateCompletion({
         systemPrompt: "You are an SEO analyst writing factual summaries based only on provided data.",
         userPrompt: aiPrompt
@@ -232,7 +261,13 @@ export async function generateMonthlyReport(websiteId: string, year: number, mon
         acquired: linksAcquired,
         verified: linksVerified,
         missing: linksMissing,
-        pending: linksPending
+        pending: linksPending,
+        error: linksError,
+        opportunities: {
+          discovered: opportunitiesDiscovered,
+          qualified: opportunitiesQualified,
+          ready: opportunitiesReady
+        }
       },
       recommendations: {
         created: recsCreated,

@@ -1,9 +1,9 @@
 import { schedules, logger } from '@trigger.dev/sdk/v3';
 import prisma from '../lib/database';
-import { dailyContentGeneration } from './dailyContentGeneration';
+import { dailyContentGeneration, DailyContentGenerationPayload } from './dailyContentGeneration';
 
 export async function executeDailyContentGenerationCron(
-  triggerFn: (payload: { websiteId: string }) => Promise<any> = (payload) => dailyContentGeneration.trigger(payload)
+  triggerFn: (payload: DailyContentGenerationPayload) => Promise<any> = (payload) => dailyContentGeneration.trigger(payload)
 ) {
   logger.info('Starting daily content generation CRON');
 
@@ -20,7 +20,8 @@ export async function executeDailyContentGenerationCron(
   for (const website of websites) {
     try {
       await triggerFn({
-        websiteId: website.id
+        websiteId: website.id,
+        autoPublish: true
       });
       triggeredCount++;
     } catch (err: any) {

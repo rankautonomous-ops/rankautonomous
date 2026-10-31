@@ -5,7 +5,8 @@ import { executeDailyContentGeneration } from '../trigger/dailyContentGeneration
 /**
  * Autonomous Daily Content Generation Cron Job.
  * Finds all active websites with content automation enabled,
- * picks the next eligible scheduled/planned article, and triggers rank-ready generation.
+ * picks the next eligible scheduled/planned article, triggers rank-ready generation,
+ * and publishes to connected CMS platforms or natively.
  * Enforces the strict 1-article-per-day limit per website.
  */
 export async function run() {
@@ -26,21 +27,30 @@ export async function run() {
 
     if (websites.length === 0) {
       console.log('[DailyContentCron] No automated websites found. Exiting.');
-      return;
+      return { successCount: 0, publishedCount: 0, skippedCount: 0, failedCount: 0 };
     }
 
     let successCount = 0;
+    let publishedCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
 
     for (const site of websites) {
       try {
         console.log(`[DailyContentCron] Evaluating website ${site.id} (${site.name || site.url})...`);
-        const result = await executeDailyContentGeneration({ websiteId: site.id });
+        const result = await executeDailyContentGeneration({
+          websiteId: site.id,
+          autoPublish: true
+        });
         
         if (result.success) {
           successCount++;
-          console.log(`[DailyContentCron] ✅ Generated article ${result.articleId} for website ${site.id}`);
+          if (result.published) {
+            publishedCount++;
+            console.log(`[DailyContentCron] ✅ Generated and published article ${result.articleId} for website ${site.id}`);
+          } else {
+            console.log(`[DailyContentCron] ℹ️ Generated article ${result.articleId} for website ${site.id} (${result.message || 'Draft'})`);
+          }
         } else {
           skippedCount++;
           console.log(`[DailyContentCron] ℹ️ Skipped website ${site.id}: ${result.message}`);
@@ -51,10 +61,14 @@ export async function run() {
       }
     }
 
-    console.log(`[DailyContentCron] Completed run. Summary: ${successCount} generated, ${skippedCount} skipped, ${failedCount} errors.`);
+    console.log(`[DailyContentCron] Completed run. Summary: ${successCount} generated, ${publishedCount} published, ${skippedCount} skipped, ${failedCount} errors.`);
+    return { successCount, publishedCount, skippedCount, failedCount };
   } catch (error) {
     console.error('[DailyContentCron] FATAL ERROR:', error);
-    process.exit(1);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw error;
   }
 }
 

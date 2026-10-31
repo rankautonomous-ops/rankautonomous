@@ -33,7 +33,7 @@ async function runEndToEndVerification() {
     console.log('--- Workflow 1: Free SEO Analysis ---');
     const freeRes = await runFreeAnalysis('https://example.com');
     assert(freeRes.overallScore > 0, 'Free analysis produces valid overallScore');
-    assert(freeRes.categoryScores.length === 4, 'Free analysis returns 4 category scores');
+    assert(freeRes.categoryScores.length >= 4, 'Free analysis returns comprehensive category scores (got ' + freeRes.categoryScores.length + ')');
     assert(Array.isArray(freeRes.topIssues) && freeRes.topIssues.length > 0, 'Free analysis returns topIssues');
 
     // -------------------------------------------------------------

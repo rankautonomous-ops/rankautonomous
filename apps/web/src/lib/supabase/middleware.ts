@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Protected route guard: Redirect unauthenticated requests to /login
-  if (path.startsWith('/app') && !user) {
+  if ((path.startsWith('/app') || path.startsWith('/admin')) && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/login';
     redirectUrl.searchParams.set('redirectTo', path);

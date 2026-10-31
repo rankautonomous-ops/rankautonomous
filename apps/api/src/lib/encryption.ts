@@ -3,38 +3,78 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 96 bits for GCM
 const AUTH_TAG_LENGTH = 16; // 128 bits
+const DEV_FALLBACK_KEY_SEED = 'rankautonomous-cms-encryption-fallback-key-2026';
 
 /**
- * Derives or retrieves the 32-byte (256-bit) encryption key from the environment.
- * Falls back to a deterministic development key if CMS_ENCRYPTION_KEY is not set.
+ * Derives a deterministic 32-byte (256-bit) Buffer from a secret string.
+ * Supports 64-character hex strings or arbitrary utf-8 passphrases hashed via SHA-256.
  */
-function getEncryptionKey(): Buffer {
-  const envKey =
-    process.env.GOOGLE_TOKEN_ENCRYPTION_KEY ||
-    process.env.CMS_ENCRYPTION_KEY ||
-    process.env.ENCRYPTION_KEY;
-  if (envKey) {
-    if (envKey.length === 64) {
-      // 32-byte hex string
-      return Buffer.from(envKey, 'hex');
-    }
-    // If arbitrary string, derive 32 bytes via SHA-256
-    return crypto.createHash('sha256').update(envKey).digest();
+function deriveKeyBuffer(keyString: string): Buffer {
+  if (keyString.length === 64 && /^[0-9a-fA-F]+$/.test(keyString)) {
+    return Buffer.from(keyString, 'hex');
   }
-  // Deterministic local development/test fallback key
-  return crypto
-    .createHash('sha256')
-    .update('rankautonomous-cms-encryption-fallback-key-2026')
-    .digest();
+  return crypto.createHash('sha256').update(keyString).digest();
 }
 
 /**
- * Encrypts a plaintext string using AES-256-GCM.
+ * Returns the primary key buffer to use for NEW encryptions.
+ * In production, enforces that a dedicated encryption environment variable is configured.
+ */
+export function getPrimaryEncryptionKey(): Buffer {
+  const envKey =
+    process.env.CMS_ENCRYPTION_KEY ||
+    process.env.GOOGLE_TOKEN_ENCRYPTION_KEY ||
+    process.env.ENCRYPTION_KEY;
+
+  if (envKey && envKey.trim().length > 0) {
+    return deriveKeyBuffer(envKey.trim());
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'FATAL: CMS_ENCRYPTION_KEY (or GOOGLE_TOKEN_ENCRYPTION_KEY) must be configured in production environment to encrypt credentials.'
+    );
+  }
+
+  // Development/Test fallback
+  return deriveKeyBuffer(DEV_FALLBACK_KEY_SEED);
+}
+
+/**
+ * Returns an ordered array of candidate keys to attempt when decrypting existing data.
+ * This guarantees that when keys are rotated, or if existing data was encrypted under
+ * GOOGLE_TOKEN_ENCRYPTION_KEY or the dev seed, it remains readable without breaking existing credentials.
+ */
+export function getCandidateDecryptionKeys(): Buffer[] {
+  const rawCandidateStrings = [
+    process.env.CMS_ENCRYPTION_KEY,
+    process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+    process.env.ENCRYPTION_KEY,
+    DEV_FALLBACK_KEY_SEED,
+  ].filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+
+  const seen = new Set<string>();
+  const keys: Buffer[] = [];
+
+  for (const s of rawCandidateStrings) {
+    const keyBuf = deriveKeyBuffer(s.trim());
+    const hex = keyBuf.toString('hex');
+    if (!seen.has(hex)) {
+      seen.add(hex);
+      keys.push(keyBuf);
+    }
+  }
+
+  return keys;
+}
+
+/**
+ * Encrypts a plaintext string using AES-256-GCM using the active primary key.
  * Returns an envelope string: `<iv_hex>:<authTag_hex>:<ciphertext_hex>`.
  */
 export function encryptCredentials(plainText: string): string {
   if (!plainText) return '';
-  const key = getEncryptionKey();
+  const key = getPrimaryEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
 
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
@@ -50,7 +90,8 @@ export function encryptCredentials(plainText: string): string {
 
 /**
  * Decrypts an AES-256-GCM encrypted envelope string.
- * Throws an error if the envelope is malformed or the authentication tag does not verify.
+ * Gracefully iterates through candidate decryption keys (active key -> legacy env key -> dev fallback)
+ * to ensure existing encrypted data is never rendered unreadable after environment or key updates.
  */
 export function decryptCredentials(cipherEnvelope: string): string {
   if (!cipherEnvelope) return '';
@@ -60,20 +101,32 @@ export function decryptCredentials(cipherEnvelope: string): string {
   }
 
   const [ivHex, authTagHex, encryptedHex] = parts;
-  const key = getEncryptionKey();
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
-    authTagLength: AUTH_TAG_LENGTH,
-  });
+  const candidateKeys = getCandidateDecryptionKeys();
+  let lastError: Error | null = null;
 
-  decipher.setAuthTag(authTag);
+  for (const key of candidateKeys) {
+    try {
+      const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
+        authTagLength: AUTH_TAG_LENGTH,
+      });
 
-  let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
+      decipher.setAuthTag(authTag);
 
-  return decrypted;
+      let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    } catch (err: any) {
+      lastError = err;
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error('Failed to decrypt credentials. None of the available encryption keys matched the envelope.')
+  );
 }
 
 /**

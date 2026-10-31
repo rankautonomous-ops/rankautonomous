@@ -10,12 +10,14 @@ const router = Router();
  */
 export function extractPeriodDates(sub: any) {
   const startSec =
+    sub.trial_start ||
     sub.current_period_start ||
     sub.items?.data?.[0]?.current_period_start ||
     sub.created ||
     Math.floor(Date.now() / 1000);
 
   const endSec =
+    sub.trial_end ||
     sub.current_period_end ||
     sub.items?.data?.[0]?.current_period_end ||
     (startSec + 30 * 24 * 60 * 60);
@@ -69,21 +71,7 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         const plan = session.metadata?.plan || 'monthly';
         const interval = session.metadata?.interval || (plan === 'annual' ? 'year' : 'month');
 
-        if (plan === 'trial' && userId && session.payment_status === 'paid') {
-          // create/update the trial state
-          const now = new Date();
-          const trialEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-          await prisma.user.update({
-            where: { id: userId },
-            data: {
-              trialActive: true,
-              trialStartedAt: now,
-              trialEndsAt,
-              isPaused: false, // Ensure they are active immediately
-            },
-          });
-          console.log(`[Stripe Webhook] Started trial for user ${userId}`);
-        } else if (userId && stripeSubscriptionId) {
+        if (userId && stripeSubscriptionId) {
           const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
           const { currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd } = extractPeriodDates(sub);
 
@@ -112,6 +100,21 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             },
           });
 
+          if (plan === 'trial' || sub.status === 'trialing') {
+            const trialStart = sub.trial_start ? new Date(sub.trial_start * 1000) : currentPeriodStart;
+            const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : currentPeriodEnd;
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                trialActive: true,
+                trialStartedAt: trialStart,
+                trialEndsAt: trialEnd,
+                isPaused: false,
+              },
+            });
+            console.log(`[Stripe Webhook] Started $1 trial for user ${userId} with auto-billing at ${trialEnd.toISOString()}`);
+          }
+
           // Subscription purchased, clear pause state if active and enable automation on user's websites
           if (sub.status === 'active' || sub.status === 'trialing') {
             await prisma.user.update({
@@ -125,6 +128,24 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
           }
 
           console.log(`[Stripe Webhook] Synchronized subscription ${stripeSubscriptionId} for user ${userId}`);
+        } else if (plan === 'trial' && userId && session.payment_status === 'paid') {
+          // Fallback if standalone trial mode without subscription
+          const now = new Date();
+          const trialEndsAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+          await prisma.user.update({
+            where: { id: userId },
+            data: {
+              trialActive: true,
+              trialStartedAt: now,
+              trialEndsAt,
+              isPaused: false, // Ensure they are active immediately
+            },
+          });
+          await prisma.website.updateMany({
+            where: { userId },
+            data: { contentAutomationEnabled: true },
+          });
+          console.log(`[Stripe Webhook] Started fallback trial for user ${userId}`);
         }
         break;
       }
@@ -167,11 +188,22 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
         if (userId) {
           const { currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd } = extractPeriodDates(subscription);
 
+          // If this subscription was previously marked as trial and has become active, graduate to monthly
+          const existingSub = await prisma.subscription.findFirst({
+            where: { stripeSubscriptionId },
+            select: { plan: true },
+          });
+
+          let effectivePlan = plan;
+          if (existingSub?.plan === 'trial' && status === 'active') {
+            effectivePlan = 'monthly';
+          }
+
           await prisma.subscription.upsert({
             where: { stripeSubscriptionId },
             create: {
               userId,
-              plan,
+              plan: effectivePlan,
               interval,
               stripeCustomerId,
               stripeSubscriptionId,
@@ -182,7 +214,7 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             },
             update: {
               status,
-              plan,
+              plan: effectivePlan,
               interval,
               stripeCustomerId,
               currentPeriodStart,
@@ -191,14 +223,42 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
             },
           });
 
-          if (status === 'active' || status === 'trialing') {
+          if (status === 'active') {
             await prisma.user.update({
               where: { id: userId },
-              data: { isPaused: false },
+              data: {
+                trialActive: false,
+                isPaused: false,
+              },
             });
             await prisma.website.updateMany({
               where: { userId },
               data: { contentAutomationEnabled: true },
+            });
+          } else if (status === 'trialing') {
+            const trialStart = subscription.trial_start ? new Date(subscription.trial_start * 1000) : currentPeriodStart;
+            const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : currentPeriodEnd;
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                trialActive: true,
+                trialStartedAt: trialStart,
+                trialEndsAt: trialEnd,
+                isPaused: false,
+              },
+            });
+            await prisma.website.updateMany({
+              where: { userId },
+              data: { contentAutomationEnabled: true },
+            });
+          } else if (status === 'past_due' || status === 'unpaid') {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { isPaused: true },
+            });
+            await prisma.website.updateMany({
+              where: { userId },
+              data: { contentAutomationEnabled: false },
             });
           }
 
@@ -254,26 +314,39 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
           null;
 
         if (stripeSubscriptionId) {
+          const existingSub = await prisma.subscription.findFirst({
+            where: { stripeSubscriptionId },
+            select: { id: true, userId: true, plan: true },
+          });
+
+          const isGraduatingTrial = existingSub?.plan === 'trial';
+          const updatedPlan = isGraduatingTrial ? 'monthly' : (existingSub?.plan || 'monthly');
+
           await prisma.subscription.updateMany({
             where: { stripeSubscriptionId },
             data: {
               status: 'active',
+              plan: updatedPlan,
             },
           });
 
-          const sub = await prisma.subscription.findFirst({
-            where: { stripeSubscriptionId },
-            select: { userId: true },
-          });
+          const userId = existingSub?.userId;
+          if (userId) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                trialActive: false,
+                isPaused: false,
+              },
+            });
 
-          if (sub?.userId) {
             await prisma.website.updateMany({
-              where: { userId: sub.userId },
+              where: { userId },
               data: { contentAutomationEnabled: true },
             });
           }
 
-          console.log(`[Stripe Webhook] Invoice paid: confirmed active for subscription ${stripeSubscriptionId}`);
+          console.log(`[Stripe Webhook] Invoice paid: confirmed active for subscription ${stripeSubscriptionId}${isGraduatingTrial ? ' (graduated from trial to monthly)' : ''}`);
         }
         break;
       }
@@ -299,18 +372,28 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
           });
 
           if (sub?.userId) {
+            await prisma.user.update({
+              where: { id: sub.userId },
+              data: { isPaused: true },
+            });
+
+            await prisma.website.updateMany({
+              where: { userId: sub.userId },
+              data: { contentAutomationEnabled: false },
+            });
+
             await prisma.notification.create({
               data: {
                 userId: sub.userId,
                 type: 'BILLING',
                 title: 'Subscription Payment Failed',
                 message:
-                  'Your recent subscription invoice payment could not be processed. Please update your payment method to avoid service interruption.',
+                  'Your recent subscription payment could not be processed. Please update your payment method in your billing dashboard to restore automatic daily publishing.',
               },
             });
           }
 
-          console.warn(`[Stripe Webhook] Payment failed for subscription ${stripeSubscriptionId}`);
+          console.warn(`[Stripe Webhook] Payment failed for subscription ${stripeSubscriptionId}; paused user automation`);
         }
         break;
       }

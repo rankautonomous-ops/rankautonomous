@@ -4,12 +4,12 @@ import prisma from '../lib/database';
 /**
  * Enqueues backlink verification jobs for UNVERIFIED and stale backlinks.
  */
-export async function run() {
-  const BATCH_SIZE = parseInt(process.env.BACKLINK_VERIFICATION_BATCH_SIZE || '500', 10);
-  const STALE_DAYS = parseInt(process.env.BACKLINK_VERIFICATION_STALE_DAYS || '14', 10);
+export async function run(customBatchSize?: number, customStaleDays?: number): Promise<number> {
+  const BATCH_SIZE = customBatchSize || parseInt(process.env.BACKLINK_VERIFICATION_BATCH_SIZE || '500', 10);
+  const STALE_DAYS = customStaleDays || parseInt(process.env.BACKLINK_VERIFICATION_STALE_DAYS || '14', 10);
 
   console.log(`[EnqueueStaleBacklinks] Starting execution. BATCH_SIZE=${BATCH_SIZE}, STALE_DAYS=${STALE_DAYS}`);
-  
+
   try {
     const staleDateThreshold = new Date();
     staleDateThreshold.setDate(staleDateThreshold.getDate() - STALE_DAYS);
@@ -41,32 +41,32 @@ export async function run() {
 
     if (backlinks.length === 0) {
       console.log(`[EnqueueStaleBacklinks] No backlinks require verification. Exiting.`);
-      return;
+      return 0;
     }
 
     console.log(`[EnqueueStaleBacklinks] Found ${backlinks.length} backlinks to evaluate.`);
 
     let enqueuedCount = 0;
-    
+
     // Process in smaller chunks to avoid massive SQL query strings
     const CHUNK_SIZE = 100;
     for (let i = 0; i < backlinks.length; i += CHUNK_SIZE) {
       const chunk = backlinks.slice(i, i + CHUNK_SIZE);
-      
+
       for (const bl of chunk) {
         // Calculate jitter
         // UNVERIFIED: between 0 and 60 minutes
         // Stale: between 0 and 24 hours
         let jitterMs = 0;
         if (bl.verificationStatus === 'UNVERIFIED') {
-          jitterMs = Math.floor(Math.random() * 60 * 60 * 1000); 
+          jitterMs = Math.floor(Math.random() * 60 * 60 * 1000);
         } else {
           jitterMs = Math.floor(Math.random() * 24 * 60 * 60 * 1000);
         }
-        
+
         const nextRunAt = new Date(Date.now() + jitterMs);
         const payloadJson = JSON.stringify({ backlinkId: bl.id });
-        
+
         // Use an atomic INSERT ... SELECT WHERE NOT EXISTS to prevent duplicates.
         // This is safe even if multiple cron instances run simultaneously.
         // We cannot rely on a Prisma unique constraint because the payload is JSON and Prisma lacks robust unique constraints for JSON fields.
@@ -80,16 +80,17 @@ export async function run() {
               AND payload->>'backlinkId' = ${bl.id}
           )
         `;
-        
+
         enqueuedCount += inserted;
       }
     }
 
     console.log(`[EnqueueStaleBacklinks] Successfully enqueued ${enqueuedCount} new verification jobs.`);
-    
+    return enqueuedCount;
+
   } catch (error) {
     console.error(`[EnqueueStaleBacklinks] FATAL ERROR:`, error);
-    process.exit(1);
+    throw error;
   }
 }
 

@@ -3,12 +3,15 @@ import prisma from '../lib/database';
 import { setAiProvider, IAiProvider, AiCompletionOptions } from '../services/aiProvider';
 import { executeDailyContentGeneration } from '../trigger/dailyContentGeneration';
 import { run as runDailyCron } from '../cron/runDailyContentGeneration';
+import { checkAndEnqueueDailyContentJobs } from '../services/contentScheduler';
+import { encryptJson } from '../lib/encryption';
 import { QueueService } from '../services/queue';
 import fs from 'fs';
 import path from 'path';
 
 class MockAiContentProvider implements IAiProvider {
   async generateCompletion(opts: AiCompletionOptions): Promise<string> {
+    const prompt = opts.systemPrompt + opts.userPrompt;
     return JSON.stringify({
       title: "Automated Daily Rank-Ready Article",
       metaDescription: "Comprehensive meta description optimized for search intent and organic traffic.",
@@ -23,7 +26,7 @@ class MockAiContentProvider implements IAiProvider {
 }
 
 async function runTests() {
-  console.log('--- Running Autonomous Daily Blog & Author Removal Tests ---');
+  console.log('--- Running Autonomous Daily Blog & Publishing Tests ---');
   let exitCode = 0;
 
   const mockProvider = new MockAiContentProvider();
@@ -32,8 +35,19 @@ async function runTests() {
   const testUserId = `test-user-daily-${Date.now()}`;
   const testSiteId = `test-site-daily-${Date.now()}`;
   const disabledSiteId = `test-site-disabled-${Date.now()}`;
+  const autoPlanSiteId = `test-site-autoplan-${Date.now()}`;
+  const cmsFailSiteId = `test-site-cmsfail-${Date.now()}`;
+  const unservedSiteId = `test-site-unserved-${Date.now()}`;
 
   try {
+    // 0. Clean up any leftover test data from previous runs
+    await prisma.backgroundJob.deleteMany({ where: { type: 'DAILY_CONTENT_GENERATION' } });
+    await prisma.website.deleteMany({
+      where: {
+        id: { startsWith: 'test-site-daily' }
+      }
+    });
+
     // 1. Verify Author Names Are Removed from Blog Data & Post UI
     console.log('Test 1: Verify Author Names in Blog Posts & Pages');
     const postsFilePath = path.resolve(__dirname, '../../../web/src/lib/blog/posts.ts');
@@ -58,7 +72,7 @@ async function runTests() {
 
     console.log('✅ Personal author names and byline blocks verified completely removed from blog files');
 
-    // 2. Setup automated test website
+    // 2. Setup automated test websites
     console.log('Test 2: Setup Automated Test Website');
     await prisma.user.create({
       data: {
@@ -89,8 +103,8 @@ async function runTests() {
     });
     console.log('✅ Automated test websites created');
 
-    // 3. Test Daily Limit Enforcement & Planned Article Generation
-    console.log('Test 3: Daily Autonomous Article Generation');
+    // 3. Test Daily Article Generation AND Automatic Publishing
+    console.log('Test 3: Daily Autonomous Article Generation and Automatic Publishing');
     const pastDate = new Date(Date.now() - 3600000); // 1 hour ago
     const testArticle = await prisma.article.create({
       data: {
@@ -108,14 +122,21 @@ async function runTests() {
       throw new Error(`Daily content generation failed: ${JSON.stringify(generationResult)}`);
     }
 
+    if (!generationResult.published) {
+      throw new Error(`Expected daily article to be published, but got published=${generationResult.published}`);
+    }
+
     const updatedArticle = await prisma.article.findUnique({ where: { id: testArticle.id } });
-    if (updatedArticle?.status !== 'DRAFT') {
-      throw new Error(`Expected article status DRAFT, got: ${updatedArticle?.status}`);
+    if (updatedArticle?.status !== 'PUBLISHED') {
+      throw new Error(`Expected article status PUBLISHED, got: ${updatedArticle?.status}`);
+    }
+    if (!updatedArticle.publishedAt) {
+      throw new Error('Expected publishedAt timestamp to be set on published article');
     }
     if (!updatedArticle.content || !updatedArticle.content.includes('rank-ready article')) {
       throw new Error('Generated content was not saved to the article');
     }
-    console.log('✅ Article successfully generated and transitioned to DRAFT with rank-ready content');
+    console.log('✅ Article successfully generated and PUBLISHED with rank-ready content');
 
     // 4. Test Strict 1-Article-Per-Day Limit Enforcement
     console.log('Test 4: Enforce At-Most-1-Article-A-Day Limit');
@@ -139,14 +160,17 @@ async function runTests() {
     if (secondArtCheck?.status !== 'PLANNED') {
       throw new Error(`Second article should have remained PLANNED, got: ${secondArtCheck?.status}`);
     }
-    console.log('✅ Daily limit strictly enforced (at most 1 article generated per day)');
+    console.log('✅ Daily limit strictly enforced (at most 1 article generated/published per day)');
 
     // 5. Test Autonomous Daily Cron Runner
     console.log('Test 5: Standalone Autonomous Daily Content Cron Runner');
-    await runDailyCron();
-    console.log('✅ Daily Content Cron Runner completed cleanly without exceptions');
+    const cronResult = await runDailyCron();
+    if (!cronResult || typeof cronResult.successCount !== 'number') {
+      throw new Error('runDailyCron did not return summary metrics');
+    }
+    console.log('✅ Daily Content Cron Runner completed cleanly with metrics:', cronResult);
 
-    // 6. Test Worker AI_ARTICLE_GENERATION Job Processing
+    // 6. Test Worker AI_ARTICLE_GENERATION Queue Processing
     console.log('Test 6: Worker AI_ARTICLE_GENERATION Queue Processing');
     const workerArticle = await prisma.article.create({
       data: {
@@ -172,10 +196,8 @@ async function runTests() {
       throw new Error('Failed to enqueue AI_ARTICLE_GENERATION background job');
     }
 
-    // Import worker to process
     const claimedJob = await QueueService.claimJob('test-worker-id');
     if (claimedJob && claimedJob.id === backgroundJob.id) {
-      // Simulate worker processJob switch
       const { generateArticle } = await import('../services/aiContent');
       await generateArticle(claimedJob.payload.jobId);
       await QueueService.completeJob(claimedJob.id);
@@ -190,8 +212,139 @@ async function runTests() {
         throw new Error(`Worker article was not transitioned to DRAFT: ${generatedWorkerArt?.status}`);
       }
       console.log('✅ Worker successfully claimed, executed, and completed AI_ARTICLE_GENERATION');
-    } else {
-      console.log('Job claimed or skipped according to queue state');
+    }
+
+    // 7. Test Autonomous Fallback when queue has 0 planned articles
+    console.log('Test 7: Autonomous Topic Fallback when calendar is empty');
+    await prisma.website.create({
+      data: {
+        id: autoPlanSiteId,
+        userId: testUserId,
+        url: 'https://autoplan-blog-test.com',
+        name: 'AutoPlan Test Site',
+        industry: 'B2B SaaS Analytics',
+        primaryKeywords: ['saas analytics automation', 'retention optimization'],
+        contentAutomationEnabled: true
+      }
+    });
+
+    const autoPlanResult = await executeDailyContentGeneration({ websiteId: autoPlanSiteId });
+    if (!autoPlanResult.success || !autoPlanResult.published) {
+      throw new Error(`Expected auto-planned article to be generated and published: ${JSON.stringify(autoPlanResult)}`);
+    }
+
+    const createdArticle = await prisma.article.findUnique({ where: { id: autoPlanResult.articleId } });
+    if (createdArticle?.status !== 'PUBLISHED') {
+      throw new Error(`Auto-planned article status is not PUBLISHED: ${createdArticle?.status}`);
+    }
+    if (!createdArticle.title || !createdArticle.content) {
+      throw new Error('Auto-planned article missing title or content');
+    }
+    console.log(`✅ Autonomous fallback generated and published topic "${createdArticle.title}" when queue was empty`);
+
+    // 8. Test CMS Publishing Failure Handling & Content Preservation
+    console.log('Test 8: CMS Publishing Failure Handling (Preserves Content in APPROVED)');
+    await prisma.website.create({
+      data: {
+        id: cmsFailSiteId,
+        userId: testUserId,
+        url: 'https://cms-fail-test.com',
+        name: 'CMS Fail Test Site',
+        contentAutomationEnabled: true
+      }
+    });
+
+    // Create a CMS connection pointing to unreachable host to test failure handling
+    await prisma.cmsConnection.create({
+      data: {
+        websiteId: cmsFailSiteId,
+        provider: 'CUSTOM',
+        name: 'Unreachable Webhook CMS',
+        status: 'CONNECTED',
+        baseUrl: 'https://192.0.2.1/unreachable', // TEST-NET unreachable IP
+        credentials: encryptJson({ token: 'mock-token' }),
+        metadata: { authMethod: 'BEARER' }
+      }
+    });
+
+    const cmsFailArticle = await prisma.article.create({
+      data: {
+        websiteId: cmsFailSiteId,
+        topic: 'Failure Handling Playbook',
+        title: 'Failure Handling Playbook',
+        primaryKeyword: 'failure handling',
+        status: 'PLANNED',
+        scheduledAt: pastDate
+      }
+    });
+
+    const cmsFailResult = await executeDailyContentGeneration({ websiteId: cmsFailSiteId });
+    if (!cmsFailResult.success) {
+      throw new Error(`Expected generation to succeed even if CMS publish failed: ${JSON.stringify(cmsFailResult)}`);
+    }
+    if (cmsFailResult.published !== false) {
+      throw new Error(`Expected published to be false for unreachable CMS`);
+    }
+
+    const preservedArticle = await prisma.article.findUnique({ where: { id: cmsFailArticle.id } });
+    if (preservedArticle?.status !== 'APPROVED') {
+      throw new Error(`Expected article to remain in APPROVED status without data loss, got: ${preservedArticle?.status}`);
+    }
+    if (!preservedArticle.content || !preservedArticle.content.includes('rank-ready article')) {
+      throw new Error('Generated content was lost during CMS failure');
+    }
+    console.log('✅ CMS publishing failure handled safely: content generated & preserved in APPROVED without crashing');
+
+    // 9. Test Worker Scheduler Periodic Check Enqueue
+    console.log('Test 9: Worker Scheduler Check Enqueues Pending Sites');
+    await prisma.backgroundJob.deleteMany({ where: { type: 'DAILY_CONTENT_GENERATION' } });
+
+    await prisma.website.create({
+      data: {
+        id: unservedSiteId,
+        userId: testUserId,
+        url: 'https://unserved-site.com',
+        name: 'Unserved Site',
+        contentAutomationEnabled: true
+      }
+    });
+
+    const enqueuedCount = await checkAndEnqueueDailyContentJobs();
+    if (enqueuedCount < 1) {
+      throw new Error(`Expected at least 1 job enqueued by scheduler, got ${enqueuedCount}`);
+    }
+
+    const enqueuedJob = await prisma.backgroundJob.findFirst({
+      where: {
+        type: 'DAILY_CONTENT_GENERATION',
+        status: 'QUEUED',
+        payload: { path: ['websiteId'], equals: unservedSiteId }
+      }
+    });
+    if (!enqueuedJob) {
+      throw new Error(`Scheduler failed to enqueue DAILY_CONTENT_GENERATION job for unserved site ${unservedSiteId}`);
+    }
+    console.log('✅ Worker scheduler accurately detected unserved automation site and enqueued job');
+
+    // 10. Test Worker Execution of DAILY_CONTENT_GENERATION Job
+    console.log('Test 10: Worker Processes DAILY_CONTENT_GENERATION Job');
+    const claimedDailyJob = await QueueService.claimJob('test-worker-id');
+    if (claimedDailyJob && claimedDailyJob.id === enqueuedJob.id) {
+      const result = await executeDailyContentGeneration({
+        websiteId: claimedDailyJob.payload.websiteId,
+        autoPublish: claimedDailyJob.payload.autoPublish !== false
+      });
+      await QueueService.completeJob(claimedDailyJob.id);
+
+      const jobDone = await prisma.backgroundJob.findUnique({ where: { id: claimedDailyJob.id } });
+      if (jobDone?.status !== 'COMPLETED') {
+        throw new Error(`Worker failed to complete DAILY_CONTENT_GENERATION job: ${jobDone?.status}`);
+      }
+
+      if (!result.success || !result.published) {
+        throw new Error(`Worker execution failed to publish article: ${JSON.stringify(result)}`);
+      }
+      console.log('✅ Background worker claimed, executed, and published DAILY_CONTENT_GENERATION job');
     }
 
   } catch (err: any) {
@@ -201,10 +354,13 @@ async function runTests() {
     // Cleanup
     setAiProvider(null);
     try {
-      await prisma.backgroundJob.deleteMany({ where: { payload: { path: ['jobId'], string_contains: testSiteId } } });
+      const allTestSites = [testSiteId, disabledSiteId, autoPlanSiteId, cmsFailSiteId, unservedSiteId];
+      await prisma.articlePublication.deleteMany({ where: { article: { websiteId: { in: allTestSites } } } });
+      await prisma.cmsConnection.deleteMany({ where: { websiteId: { in: allTestSites } } });
+      await prisma.backgroundJob.deleteMany({ where: { type: 'DAILY_CONTENT_GENERATION' } });
       await prisma.aiJob.deleteMany({ where: { userId: testUserId } });
-      await prisma.article.deleteMany({ where: { websiteId: { in: [testSiteId, disabledSiteId] } } });
-      await prisma.website.deleteMany({ where: { id: { in: [testSiteId, disabledSiteId] } } });
+      await prisma.article.deleteMany({ where: { websiteId: { in: allTestSites } } });
+      await prisma.website.deleteMany({ where: { id: { in: allTestSites } } });
       await prisma.user.deleteMany({ where: { id: testUserId } });
     } catch {}
   }

@@ -96,6 +96,7 @@ export async function verifyBacklink(backlinkId: string): Promise<void> {
         where: { id: backlinkId },
         data: {
           verificationStatus: 'MISSING',
+          status: 'LOST',
           lastErrorMessage: null,
           lastChecked: new Date()
         }
@@ -146,6 +147,7 @@ export async function verifyBacklink(backlinkId: string): Promise<void> {
   const normalizedTarget = normalizeUrlForComparison(backlink.targetUrl);
   
   let found = false;
+  let foundAnchor: string | null = null;
   const linkAttributes = new Set<string>();
 
   // Optional: check meta robots
@@ -168,6 +170,11 @@ export async function verifyBacklink(backlinkId: string): Promise<void> {
 
       if (normalizedHref === normalizedTarget) {
         found = true;
+        const text = $(el).text().trim();
+        if (text && !foundAnchor) {
+          foundAnchor = text;
+        }
+
         // Extract rel attributes
         const rel = $(el).attr('rel')?.toLowerCase() || '';
         const relParts = rel.split(/\s+/);
@@ -192,6 +199,8 @@ export async function verifyBacklink(backlinkId: string): Promise<void> {
       where: { id: backlinkId },
       data: {
         verificationStatus: 'VERIFIED',
+        status: 'ACTIVE',
+        anchorText: foundAnchor || backlink.anchorText || undefined,
         linkAttributes: Array.from(linkAttributes),
         lastErrorMessage: null,
         lastChecked: new Date()
@@ -202,6 +211,7 @@ export async function verifyBacklink(backlinkId: string): Promise<void> {
       where: { id: backlinkId },
       data: {
         verificationStatus: 'MISSING',
+        status: 'LOST',
         lastErrorMessage: null,
         lastChecked: new Date()
       }

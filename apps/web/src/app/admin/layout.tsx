@@ -15,18 +15,10 @@ import {
 
 const navItems = [
   { path: '/admin', label: 'Overview', icon: LayoutDashboard },
-  { path: '/admin/users', label: 'Users', icon: Users },
-  { path: '/admin/websites', label: 'Websites', icon: Globe },
-  { path: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
-  { path: '/admin/content', label: 'Content', icon: FileText },
-  { path: '/admin/seo', label: 'SEO Audits', icon: Activity },
-  { path: '/admin/keywords', label: 'Keywords', icon: Key },
-  { path: '/admin/backlinks', label: 'Backlinks', icon: LinkIcon },
-  { path: '/admin/recommendations', label: 'Recommendations', icon: Lightbulb },
-  { path: '/admin/cms', label: 'CMS Connections', icon: Database },
-  { path: '/admin/jobs', label: 'Background Jobs', icon: Settings },
-  { path: '/admin/reports', label: 'Monthly Reports', icon: BarChart2 },
-  { path: '/admin/audit-logs', label: 'Audit Logs', icon: ListOrdered },
+  { path: '/admin/users', label: 'Users & Roles', icon: Users },
+  { path: '/admin/subscriptions', label: 'Subscriptions & Billing', icon: CreditCard },
+  { path: '/admin/websites', label: 'Websites & Domains', icon: Globe },
+  { path: '/admin/audit-logs', label: 'System Activity & Logs', icon: ListOrdered },
   { path: '/admin/system-health', label: 'System Health', icon: ShieldAlert },
 ];
 
@@ -115,6 +107,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             );
           })}
         </nav>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)' }}>
+          <Link
+            href="/app"
+            style={{
+              fontSize: '13px',
+              color: 'var(--text-secondary)',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            ← Back to App
+          </Link>
+        </div>
       </aside>
       
       <main className={styles.mainContent}>

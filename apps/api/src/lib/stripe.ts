@@ -34,7 +34,7 @@ export const STRIPE_MONTHLY_PRICE_ID = getStripeMonthlyPriceId();
 export const STRIPE_ANNUAL_PRICE_ID = getStripeAnnualPriceId();
 export const STRIPE_WEBHOOK_SECRET = getStripeWebhookSecret();
 
-export type PlanType = 'monthly' | 'annual';
+export type PlanType = 'monthly' | 'annual' | 'trial';
 export { PRICING_CONFIG } from './pricing';
 
 /**
@@ -45,7 +45,7 @@ export function getPriceIdForPlan(plan: string): { priceId: string; interval: 'm
   const monthlyPriceId = getStripeMonthlyPriceId();
   const annualPriceId = getStripeAnnualPriceId();
 
-  if (plan === 'monthly') {
+  if (plan === 'monthly' || plan === 'trial') {
     if (!monthlyPriceId) return null;
     return {
       priceId: monthlyPriceId,

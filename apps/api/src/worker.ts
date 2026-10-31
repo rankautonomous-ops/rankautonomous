@@ -1,10 +1,12 @@
 import './lib/env'; // MUST be the first import to configure environment variables
 import { QueueService } from './services/queue';
+import { checkAndEnqueueDailyContentJobs } from './services/contentScheduler';
 import { randomUUID } from 'crypto';
 
 const WORKER_ID = `worker-${randomUUID()}`;
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = process.env.NODE_ENV === 'test' ? 500 : 5000;
 let isShuttingDown = false;
+let schedulerTimer: NodeJS.Timeout | null = null;
 
 // Service imports for background worker
 import { syncGoogleIntegrations } from './services/google';
@@ -14,10 +16,14 @@ import { executeDailyContentGeneration } from './trigger/dailyContentGeneration'
 
 import prisma from './lib/database';
 import { verifyBacklink } from './services/backlinks/verifyBacklink';
+import { executeAutomaticBacklinkGeneration } from './services/backlinks/automaticBacklinkWorkflow';
+import { run as runStaleBacklinkEnqueue } from './cron/enqueueStaleBacklinks';
+
+export { checkAndEnqueueDailyContentJobs };
 
 async function processJob(job: any) {
   console.log(`[Worker ${WORKER_ID}] Processing job ${job.id} of type ${job.type}`);
-  
+
   try {
     switch (job.type) {
       case 'GOOGLE_SYNC': {
@@ -91,7 +97,27 @@ async function processJob(job: any) {
           break;
         }
         console.log(`[Worker ${WORKER_ID}] Executing DAILY_CONTENT_GENERATION for website ${job.payload.websiteId}`);
-        await executeDailyContentGeneration({ websiteId: job.payload.websiteId });
+        const result = await executeDailyContentGeneration({
+          websiteId: job.payload.websiteId,
+          autoPublish: job.payload.autoPublish !== false,
+          force: job.payload.force === true
+        });
+        console.log(`[Worker ${WORKER_ID}] DAILY_CONTENT_GENERATION completed for website ${job.payload.websiteId}:`, result);
+        break;
+      }
+      case 'AUTOMATIC_BACKLINK_GENERATION': {
+        if (!job.payload || typeof job.payload.websiteId !== 'string') {
+          console.warn(`[Worker ${WORKER_ID}] Malformed payload for AUTOMATIC_BACKLINK_GENERATION. Skipping.`);
+          break;
+        }
+        console.log(`[Worker ${WORKER_ID}] Executing AUTOMATIC_BACKLINK_GENERATION for website ${job.payload.websiteId}`);
+        const result = await executeAutomaticBacklinkGeneration({
+          websiteId: job.payload.websiteId,
+          articleId: job.payload.articleId,
+          topic: job.payload.topic,
+          keyword: job.payload.keyword
+        });
+        console.log(`[Worker ${WORKER_ID}] AUTOMATIC_BACKLINK_GENERATION completed for website ${job.payload.websiteId}:`, result);
         break;
       }
       case 'BACKLINK_VERIFICATION':
@@ -122,7 +148,7 @@ async function processJob(job: any) {
       default:
         throw new Error(`Unknown job type: ${job.type}`);
     }
-    
+
     await QueueService.completeJob(job.id);
     console.log(`[Worker ${WORKER_ID}] Successfully completed job ${job.id}`);
   } catch (error: any) {
@@ -145,6 +171,31 @@ async function startPolling() {
   // Recover any stale jobs on startup
   await QueueService.recoverStaleJobs();
 
+  // Run initial scheduler check for daily content publishing & stale backlinks in non-test environments
+  if (process.env.NODE_ENV !== 'test' && !process.argv.some(a => a.includes('test'))) {
+    await checkAndEnqueueDailyContentJobs();
+    await runStaleBacklinkEnqueue(50, 14).catch((err) => {
+      console.error('[Worker Scheduler] Initial stale backlink enqueue error:', err?.message || err);
+    });
+
+    // Recurring scheduler check every 30 minutes
+    const SCHEDULER_INTERVAL_MS = 30 * 60 * 1000;
+    schedulerTimer = setInterval(() => {
+      if (!isShuttingDown) {
+        checkAndEnqueueDailyContentJobs().catch((err) => {
+          console.error('[Worker Scheduler] Interval error in daily content jobs:', err?.message || err);
+        });
+        runStaleBacklinkEnqueue(50, 14).catch((err) => {
+          console.error('[Worker Scheduler] Interval error in stale backlink enqueue:', err?.message || err);
+        });
+      }
+    }, SCHEDULER_INTERVAL_MS);
+
+    if (schedulerTimer.unref) {
+      schedulerTimer.unref();
+    }
+  }
+
   while (!isShuttingDown) {
     if (activeJobs.size >= WORKER_CONCURRENCY) {
       // Wait for at least one job to finish before trying to claim another
@@ -154,14 +205,14 @@ async function startPolling() {
 
     try {
       const job = await QueueService.claimJob(WORKER_ID);
-      
+
       if (job) {
         const jobPromise = processJob(job).catch(err => {
           console.error(`[Worker ${WORKER_ID}] Unhandled exception in job wrapper:`, err);
         }).finally(() => {
           activeJobs.delete(jobPromise);
         });
-        
+
         activeJobs.add(jobPromise);
       } else {
         // No jobs available, wait before polling again
@@ -187,11 +238,13 @@ async function startPolling() {
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down worker gracefully...');
   isShuttingDown = true;
+  if (schedulerTimer) clearInterval(schedulerTimer);
 });
 
 process.on('SIGINT', () => {
   console.log('SIGINT received. Shutting down worker gracefully...');
   isShuttingDown = true;
+  if (schedulerTimer) clearInterval(schedulerTimer);
 });
 
 // Start the worker

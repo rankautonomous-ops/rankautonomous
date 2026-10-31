@@ -219,7 +219,7 @@ async function runCalendarTests() {
       data: { scheduledAt: pastDate }
     });
 
-    const runResult = await executeDailyContentGeneration({ websiteId: TEST_WEBSITE_ID });
+    const runResult = await executeDailyContentGeneration({ websiteId: TEST_WEBSITE_ID, autoPublish: false });
     assert.equal(runResult.success, true);
     assert.equal(runResult.articleId, targetArticle.id);
 

@@ -80,14 +80,15 @@ export default async function AppDashboardPage() {
   let apiUser: ApiMeResponse | null = null;
   let activeWebsite: ActiveWebsiteResponse['website'] = null;
   let performanceData: any = null;
+  let subscriptionData: any = null;
   let apiStatus = 'Connecting to backend API...';
 
   if (session?.access_token) {
     try {
       const apiUrl = getApiUrl();
 
-      // 1. Fetch user sync info and active website in parallel with timeout protection
-      const [meRes, siteRes] = await Promise.all([
+      // 1. Fetch user sync info, active website, and subscription in parallel with timeout protection
+      const [meRes, siteRes, subRes] = await Promise.all([
         apiFetch(`${apiUrl}/api/me`, {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -102,7 +103,18 @@ export default async function AppDashboardPage() {
           cache: 'no-store',
           signal: AbortSignal.timeout(15000),
         }).catch((err) => ({ ok: false, status: 504, json: async () => ({ message: err.message }) } as unknown as Response)),
+        apiFetch(`${apiUrl}/api/billing/subscription`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(15000),
+        }).catch((err) => ({ ok: false, status: 504, json: async () => ({ message: err.message }) } as unknown as Response)),
       ]);
+
+      if (subRes && subRes.ok) {
+        subscriptionData = await subRes.json().catch(() => null);
+      }
 
       if (meRes.ok) {
         apiUser = await meRes.json().catch(() => null);
@@ -165,6 +177,47 @@ export default async function AppDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Trial Status Notice & Direct Cancellation / Management Link */}
+      {(subscriptionData?.trialActive || subscriptionData?.subscription?.plan === 'trial') && (
+        <div
+          style={{
+            background: subscriptionData?.subscription?.cancelAtPeriodEnd ? '#fdf6ed' : '#edf7ee',
+            border: subscriptionData?.subscription?.cancelAtPeriodEnd ? '1px solid #fae2b6' : '1px solid #b6e2be',
+            color: subscriptionData?.subscription?.cancelAtPeriodEnd ? '#926412' : '#2e6b3b',
+            padding: '12px 20px',
+            borderRadius: 'var(--radius-sm, 8px)',
+            marginBottom: '20px',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div>
+            <strong>
+              {subscriptionData?.subscription?.cancelAtPeriodEnd
+                ? 'Trial Scheduled to Cancel:'
+                : 'Active 3-Day Trial ($1.00):'}
+            </strong>{' '}
+            {subscriptionData?.subscription?.cancelAtPeriodEnd
+              ? `Full access active until ${subscriptionData.trialEndsAt ? new Date(subscriptionData.trialEndsAt).toLocaleDateString() : 'trial end'}. You will NOT be charged $149/mo.`
+              : `Automatically renews at $149/mo on ${subscriptionData?.trialEndsAt ? new Date(subscriptionData.trialEndsAt).toLocaleDateString() : 'trial end'} unless cancelled before then.`}
+          </div>
+          <Link
+            href="/app/billing"
+            style={{
+              fontWeight: 600,
+              textDecoration: 'underline',
+              color: 'inherit',
+            }}
+          >
+            {subscriptionData?.subscription?.cancelAtPeriodEnd ? 'Manage / Resume Renewal →' : 'Manage / Cancel Trial →'}
+          </Link>
+        </div>
+      )}
 
       {/* 2. ONBOARDING PROMPT IF NO WEBSITE CONNECTED */}
       {!activeWebsite ? (
@@ -560,7 +613,15 @@ export default async function AppDashboardPage() {
             <span className={styles.infoLabel}>Subscription Status</span>
             <span className={styles.infoValue}>
               <Link href="/app/billing" style={{ color: 'inherit', textDecoration: 'underline' }}>
-                RankAutonomous Complete →
+                {subscriptionData?.trialActive || subscriptionData?.subscription?.plan === 'trial'
+                  ? subscriptionData?.subscription?.cancelAtPeriodEnd
+                    ? '3-Day Trial (Cancelling) →'
+                    : '3-Day Trial ($1.00) →'
+                  : subscriptionData?.subscription?.plan === 'annual'
+                  ? 'Annual Complete ($1,188/yr) →'
+                  : subscriptionData?.subscription?.plan === 'monthly'
+                  ? 'Monthly Complete ($149/mo) →'
+                  : 'RankAutonomous Complete →'}
               </Link>
             </span>
           </div>
