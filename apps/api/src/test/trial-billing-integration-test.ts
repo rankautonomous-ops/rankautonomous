@@ -202,11 +202,82 @@ async function runTrialBillingTests() {
     assert(
       capturedSessionParams !== null &&
         capturedSessionParams.mode === 'subscription' &&
+        capturedSessionParams.branding_settings?.display_name === 'RankAutonomous' &&
         capturedSessionParams.subscription_data?.trial_period_days === 3 &&
         capturedSessionParams.line_items.some((i: any) => i.price === STRIPE_MONTHLY_PRICE_ID) &&
         capturedSessionParams.line_items.some((i: any) => i.price_data?.unit_amount === 100) &&
         capturedSessionParams.custom_text?.submit?.message.includes('$149.00/month'),
-      'Test 3: Trial checkout session configures mode: subscription, 3-day trial period, $1 fee, and full disclosure'
+      'Test 3: Trial checkout session configures mode: subscription, 3-day trial period, $1 fee, RankAutonomous branding, and full disclosure'
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Test 3b: Monthly checkout session passes RankAutonomous branding
+  // ---------------------------------------------------------------------------
+  {
+    const ctx = createMockContext({
+      user: {
+        id: testUser.id,
+        email: testUser.email,
+        name: testUser.name,
+        role: 'CUSTOMER',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      body: { plan: 'monthly' },
+    });
+
+    const handler = (billingRouter as any).stack.find(
+      (layer: any) =>
+        layer.route &&
+        layer.route.path === '/create-checkout-session' &&
+        layer.route.methods.post
+    )?.route.stack[1].handle;
+
+    capturedSessionParams = null;
+    await handler(ctx.req, ctx.res);
+
+    assert(
+      capturedSessionParams !== null &&
+        capturedSessionParams.mode === 'subscription' &&
+        capturedSessionParams.branding_settings?.display_name === 'RankAutonomous' &&
+        capturedSessionParams.line_items.some((i: any) => i.price === STRIPE_MONTHLY_PRICE_ID),
+      'Test 3b: Monthly checkout session passes branding_settings.display_name = RankAutonomous'
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Test 3c: Annual checkout session passes RankAutonomous branding
+  // ---------------------------------------------------------------------------
+  {
+    const ctx = createMockContext({
+      user: {
+        id: testUser.id,
+        email: testUser.email,
+        name: testUser.name,
+        role: 'CUSTOMER',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      body: { plan: 'annual' },
+    });
+
+    const handler = (billingRouter as any).stack.find(
+      (layer: any) =>
+        layer.route &&
+        layer.route.path === '/create-checkout-session' &&
+        layer.route.methods.post
+    )?.route.stack[1].handle;
+
+    capturedSessionParams = null;
+    await handler(ctx.req, ctx.res);
+
+    assert(
+      capturedSessionParams !== null &&
+        capturedSessionParams.mode === 'subscription' &&
+        capturedSessionParams.branding_settings?.display_name === 'RankAutonomous' &&
+        capturedSessionParams.line_items.some((i: any) => i.price === STRIPE_ANNUAL_PRICE_ID),
+      'Test 3c: Annual checkout session passes branding_settings.display_name = RankAutonomous'
     );
   }
 

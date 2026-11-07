@@ -73,6 +73,9 @@ router.post('/create-checkout-session', requireAuth, async (req: Request, res: R
         customer: stripeCustomerId,
         mode: 'subscription',
         payment_method_types: ['card'],
+        branding_settings: {
+          display_name: 'RankAutonomous',
+        },
         line_items: [
           {
             // Monthly recurring subscription ($149/mo) with 3-day trial
@@ -132,6 +135,9 @@ router.post('/create-checkout-session', requireAuth, async (req: Request, res: R
         customer: stripeCustomerId,
         mode: 'subscription',
         payment_method_types: ['card'],
+        branding_settings: {
+          display_name: 'RankAutonomous',
+        },
         line_items: [
           {
             price: priceInfo.priceId,
