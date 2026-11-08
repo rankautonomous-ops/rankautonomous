@@ -6,23 +6,33 @@
  */
 export function getApiUrl(): string {
   if (typeof window !== 'undefined') {
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
-    }
     const isLocal =
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1';
-    return isLocal
-      ? 'http://localhost:4000'
-      : 'https://rankautonomous-api.onrender.com';
+
+    if (isLocal) {
+      return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000').replace(/\/+$/, '');
+    }
+
+    // In production browser environments (e.g. www.rankautonomous.com):
+    // Use NEXT_PUBLIC_API_URL only if valid and not localhost; otherwise fallback to Render API.
+    if (
+      process.env.NEXT_PUBLIC_API_URL &&
+      !process.env.NEXT_PUBLIC_API_URL.includes('localhost') &&
+      !process.env.NEXT_PUBLIC_API_URL.includes('127.0.0.1')
+    ) {
+      return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+    }
+
+    return 'https://rankautonomous-api.onrender.com';
   }
 
   return (
-    process.env.API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    (process.env.NODE_ENV === 'production'
+    (process.env.API_URL && !process.env.API_URL.includes('localhost')
+      ? process.env.API_URL
+      : process.env.NODE_ENV === 'production'
       ? 'https://rankautonomous-api.onrender.com'
-      : 'http://localhost:4000')
+      : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000')
   ).replace(/\/+$/, '');
 }
 

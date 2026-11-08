@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '../../lib/supabase/server';
 import LogoutButton from './LogoutButton';
+import UserNavRole from './UserNavRole';
 import styles from './app.module.css';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -61,10 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
 
         <div className={styles.navRight}>
-          <div className={styles.userBadge}>
-            <span className={styles.userEmail}>{user.email}</span>
-            <span className={styles.roleTag}>CUSTOMER</span>
-          </div>
+          <UserNavRole email={user.email || ''} />
           <LogoutButton />
         </div>
       </header>

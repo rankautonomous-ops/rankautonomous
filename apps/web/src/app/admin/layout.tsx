@@ -40,11 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
 
       // Check server-side for admin role to be secure
-      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/me`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
+      const res = await apiFetch('/api/me');
       
       if (!res.ok) {
         router.push('/app');
@@ -52,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
 
       const data = await res.json();
-      if (data.user.role !== 'ADMIN') {
+      if (data?.user?.role !== 'ADMIN') {
         router.push('/app');
         return;
       }
