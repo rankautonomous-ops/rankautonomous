@@ -1,6 +1,6 @@
 import prisma from '../../lib/database';
 import { fetchSafely } from './backlinkFetcher';
-import { getAiProvider } from '../aiProvider';
+import { getAiProvider, extractJsonFromAiResponse } from '../aiProvider';
 import * as cheerio from 'cheerio';
 
 export async function qualifyOpportunity(opportunityId: string, websiteId: string) {
@@ -80,13 +80,14 @@ Evaluate how relevant a backlink from this target page would be to the given web
 
     try {
       const aiResponse = await ai.generateCompletion({
+        task: 'seo_analysis',
         systemPrompt,
         userPrompt,
         responseFormat: 'json_object',
         temperature: 0.2
       });
 
-      const parsed = JSON.parse(aiResponse);
+      const parsed = extractJsonFromAiResponse(aiResponse);
       relevanceScore = typeof parsed.rankAutonomousOpportunityScore === 'number' ? parsed.rankAutonomousOpportunityScore : 50;
       qualificationNotes = parsed.relevanceReasoning || '';
     } catch (error) {

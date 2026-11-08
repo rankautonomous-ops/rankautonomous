@@ -123,6 +123,7 @@ app.get('/', (req, res) => {
       stripeWebhook: '/api/stripe/webhook',
       websites: '/api/websites',
       integrations: '/api/integrations',
+      cron: '/api/cron/daily-run',
     },
   });
 });
@@ -131,7 +132,9 @@ import { recommendationsRouter } from './routes/recommendations';
 import reportsRouter from './routes/reports';
 import cmsRouter from './routes/cms';
 import adminRouter from './routes/admin';
+import cronRouter from './routes/cron';
 
+app.use('/api/cron', cronRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/support', supportRouter);

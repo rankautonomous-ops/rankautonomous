@@ -91,7 +91,7 @@ export async function generateArticle(jobId: string): Promise<void> {
       userPrompt,
       responseFormat: 'json_object',
       temperature: 0.7,
-      maxTokens: 4000
+      maxTokens: 8000
     });
 
     const parsed = extractJsonFromAiResponse(resultJsonStr);
@@ -141,13 +141,15 @@ export async function generateArticle(jobId: string): Promise<void> {
   } catch (err: any) {
     const safeErr = sanitizeErrorMessage(err);
     console.error(`[AI Content] Generation job ${jobId} failed:`, safeErr);
-    await prisma.aiJob.update({
-      where: { id: jobId },
-      data: {
-        status: 'FAILED',
-        error: safeErr
-      }
-    });
+    try {
+      await prisma.aiJob.update({
+        where: { id: jobId },
+        data: {
+          status: 'FAILED',
+          error: safeErr
+        }
+      });
+    } catch {}
 
     if (targetArticleId) {
       try {
@@ -236,12 +238,14 @@ export async function reviewArticle(jobId: string): Promise<void> {
   } catch (err: any) {
     const safeErr = sanitizeErrorMessage(err);
     console.error(`[AI Content Review] Review job ${jobId} failed:`, safeErr);
-    await prisma.aiJob.update({
-      where: { id: jobId },
-      data: {
-        status: 'FAILED',
-        error: safeErr
-      }
-    });
+    try {
+      await prisma.aiJob.update({
+        where: { id: jobId },
+        data: {
+          status: 'FAILED',
+          error: safeErr
+        }
+      });
+    } catch {}
   }
 }

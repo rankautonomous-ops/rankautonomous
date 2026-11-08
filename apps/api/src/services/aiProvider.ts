@@ -617,6 +617,56 @@ export function setAiProvider(provider: IAiProvider | null): void {
 }
 
 /**
+ * Attempts to repair JSON that was truncated due to model token limits
+ * (e.g., unterminated strings or unclosed braces/brackets).
+ */
+export function repairTruncatedJson(jsonStr: string): string {
+  let str = jsonStr.trim();
+  let inString = false;
+  let escaped = false;
+  const stack: string[] = [];
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{' || char === '[') {
+        stack.push(char);
+      } else if (char === '}') {
+        if (stack.length && stack[stack.length - 1] === '{') stack.pop();
+      } else if (char === ']') {
+        if (stack.length && stack[stack.length - 1] === '[') stack.pop();
+      }
+    }
+  }
+
+  if (inString) {
+    str += '"';
+  }
+
+  // Remove any trailing dangling commas before closing
+  str = str.replace(/,\s*$/, '');
+
+  while (stack.length > 0) {
+    const openChar = stack.pop();
+    str += openChar === '{' ? '}' : ']';
+  }
+
+  return str;
+}
+
+/**
  * Safely extracts and parses JSON from AI model responses.
  * Robust against free models that include markdown code fences (```json ... ```) or conversational preambles.
  */
@@ -664,6 +714,11 @@ export function extractJsonFromAiResponse(rawContent: string): any {
     try {
       const fixed = cleaned.replace(/,\s*([\]}])/g, '$1');
       return JSON.parse(fixed);
+    } catch {}
+    // Attempt repair for truncated JSON responses (unclosed strings and braces)
+    try {
+      const repaired = repairTruncatedJson(cleaned);
+      return JSON.parse(repaired);
     } catch {}
     throw new AiProviderError(`AI returned invalid JSON: ${err.message}`, 502, 'MALFORMED_AI_JSON');
   }

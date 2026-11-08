@@ -1,5 +1,5 @@
 import prisma from '../../../lib/database';
-import { getAiProvider } from '../../aiProvider';
+import { getAiProvider, extractJsonFromAiResponse } from '../../aiProvider';
 import { fetchSafely } from '../backlinkFetcher';
 import { BacklinkOpportunityType } from '@prisma/client';
 
@@ -48,17 +48,19 @@ export async function discoverOpportunities(websiteId: string, params: Discovery
   // Use AI to generate highly relevant potential domains/pages
   const ai = getAiProvider();
 
-  const systemPrompt = `You are an expert SEO backlink discovery engine. Your job is to suggest REAL, highly relevant websites, directories, or resource pages that could realistically link to a given website based on its industry and the provided topic/keyword.
-DO NOT hallucinate fake domains. Only suggest well-known industry sites, directories, or common resource page patterns.
+  const systemPrompt = `You are an expert SEO backlink discovery engine. Your job is to suggest REAL, highly relevant, reputable websites, directories, or resource pages that could realistically link to a given website based on its industry and the provided topic/keyword.
+DO NOT hallucinate fake domains. Only suggest REAL, well-known popular industry sites, publications, or reputable directories.
 Return a JSON object with a "candidates" array. Each candidate must have:
-- "url": the exact URL (e.g., "https://example.com/resources")
+- "url": the exact URL (e.g., "https://example.com/")
 - "domain": the root domain (e.g., "example.com")
 - "relevance": a score from 0 to 100
 - "reason": why they might link
 - "type": one of ["GUEST_POST", "RESOURCE_PAGE", "BUSINESS_DIRECTORY", "INDUSTRY_PUBLICATION", "BRAND_MENTION", "BROKEN_LINK", "PARTNERSHIP", "RELEVANT_WEBSITE"]`;
 
-  const userPrompt = `Suggest ${limit} backlink opportunity candidates for a website in the "${website.industry || 'general'}" industry.
-Target audience: ${website.targetAudience || 'General'}
+  const industryStr = website.industry || (website.primaryKeywords && website.primaryKeywords.length > 0 ? website.primaryKeywords.slice(0, 3).join(', ') : 'technology');
+
+  const userPrompt = `Suggest ${limit} REAL, reputable backlink opportunity candidates for a website in the "${industryStr}" niche.
+Target audience: ${website.targetAudience || 'General technical and business audience'}
 ${params.topic ? `Topic focus: ${params.topic}` : ''}
 ${params.keyword ? `Target keyword: ${params.keyword}` : ''}
 ${params.targetPage ? `Target article page to be linked: ${params.targetPage}` : ''}
@@ -66,13 +68,14 @@ ${params.competitor ? `Analyze relative to competitor: ${params.competitor}` : '
 
   try {
     const aiResponse = await ai.generateCompletion({
+      task: 'seo_analysis',
       systemPrompt,
       userPrompt,
       responseFormat: 'json_object',
       temperature: 0.5
     });
 
-    const parsed = JSON.parse(aiResponse);
+    const parsed = extractJsonFromAiResponse(aiResponse);
     if (parsed.candidates && Array.isArray(parsed.candidates)) {
       for (const c of parsed.candidates) {
         let domain = String(c.domain || '').trim().toLowerCase();

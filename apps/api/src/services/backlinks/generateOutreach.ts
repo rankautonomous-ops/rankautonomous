@@ -1,5 +1,5 @@
 import prisma from '../../lib/database';
-import { getAiProvider } from '../aiProvider';
+import { getAiProvider, extractJsonFromAiResponse } from '../aiProvider';
 
 export async function generateOutreachMessage(campaignId: string, websiteId: string) {
   const campaign = await prisma.backlinkCampaign.findUnique({
@@ -41,6 +41,7 @@ Contact Name (if known): ${campaign.contactName || 'Site Owner/Editor'}`;
 
   try {
     const aiResponse = await ai.generateCompletion({
+      task: 'chat',
       systemPrompt,
       userPrompt,
       responseFormat: 'json_object',
@@ -48,7 +49,7 @@ Contact Name (if known): ${campaign.contactName || 'Site Owner/Editor'}`;
       maxTokens: 500
     });
 
-    const parsed = JSON.parse(aiResponse);
+    const parsed = extractJsonFromAiResponse(aiResponse);
     if (parsed.subject) subject = parsed.subject;
     if (parsed.message) message = parsed.message;
   } catch (err) {

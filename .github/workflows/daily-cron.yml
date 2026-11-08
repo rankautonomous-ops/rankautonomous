@@ -1,0 +1,47 @@
+name: Autonomous Daily Blog & Backlink Automation
+
+on:
+  schedule:
+    # Runs automatically every day at 02:00 UTC (07:30 IST / 21:00 EST)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allows manual one-click execution from GitHub Actions UI
+
+jobs:
+  run-daily-cron:
+    name: Execute Daily Content & Backlinks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Trigger Daily Automation Endpoint
+        run: |
+          API_URL="${{ secrets.API_URL || 'https://rankautonomous-api.onrender.com' }}"
+          SECRET="${{ secrets.CRON_SECRET || secrets.TRIGGER_SECRET_KEY }}"
+
+          if [ -z "$SECRET" ]; then
+            echo "❌ ERROR: Neither CRON_SECRET nor TRIGGER_SECRET_KEY is configured in GitHub Repository Secrets."
+            echo "Please add CRON_SECRET under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          echo "🚀 Triggering RankAutonomous daily automation at $API_URL/api/cron/daily-run..."
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/api/cron/daily-run" \
+            -H "Authorization: Bearer $SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 600)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo "Response Body:"
+          echo "$BODY"
+
+          if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 207 ]; then
+            echo "✅ Daily automation completed successfully!"
+          else
+            echo "❌ Daily automation failed with HTTP status $HTTP_CODE"
+            exit 1
+          fi
+
